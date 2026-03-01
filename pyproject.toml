@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "actuator-control"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "deepdiff",
+    "loop-rate-limiters",
+    "python-can",
+    "robstride-dynamics",
+    "tqdm",
+]
+
+[tool.hatchling.build.targets.wheel]
+packages = ["actuator_control"]
