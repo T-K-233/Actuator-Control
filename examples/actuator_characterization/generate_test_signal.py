@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 class CharacterizationCfg:
     """Base configuration for characterization tests."""
     seed: int
-    policy_frequency: float
-    sampling_frequency: float
+    policy_frequency: int
+    sampling_frequency: int
     rest_duration: float
     hardware_configs: list[dict]
     signal_configs: list[dict]
@@ -25,10 +25,10 @@ class ERobCfg(CharacterizationCfg):
     seed: int = 42
     """ Seed for gaussian signal generation. """
 
-    policy_frequency: float = 50  # Hz
+    policy_frequency: int = 50  # Hz
     """ The frequency that position commands are generated. """
 
-    sampling_frequency: float = 50  # Hz
+    sampling_frequency: int = 50  # Hz
     """ The frequency of the actuator communication. """
 
     rest_duration: float = 1.0  # s
@@ -117,7 +117,7 @@ class CharacterizationTest:
     Attributes:
         times: (N,) per-sampling time in seconds; N = number of sampling steps.
         signal: (N,) per-sampling position command in rad; same length as times.
-        commands: (M,) subsampled position commands at policy (command) frequency, for sending to actuators; M = N // (sampling_frequency / policy_frequency).
+        commands: (M,) subsampled position commands at policy (command) frequency, for sending to actuators; M = N // (sampling_frequency // policy_frequency).
         steps: (M,) sampling-step indices; steps[i] is the index into times/signal where commands[i] applies.
     """
 
@@ -131,6 +131,8 @@ class CharacterizationTest:
 
         assert cfg.sampling_frequency % cfg.policy_frequency == 0, "sampling_frequency must be a multiple of policy_frequency"
 
+        np.random.seed(cfg.seed)
+
         # Populated by generate_signal(): times/signal at sampling rate; commands/steps at command rate.
         self.times = np.array([], dtype=np.float32)
         self.signal = np.array([], dtype=np.float32)
@@ -142,7 +144,7 @@ class CharacterizationTest:
     @property
     def duration(self) -> float:
         """Duration of the test trajectory in seconds."""
-        return self.times[-1]
+        return len(self.times) / self.cfg.sampling_frequency
 
     @staticmethod
     def generate_sine_signal(times: np.ndarray, frequency: float, amplitude: float, offset: float) -> np.ndarray:
@@ -200,7 +202,7 @@ class CharacterizationTest:
         rest_duration_s = cfg.rest_duration
 
         dt = 1.0 / sampling_frequency
-        repeat = int(sampling_frequency / policy_frequency)
+        repeat = sampling_frequency // policy_frequency
         rest_samples = int(rest_duration_s * sampling_frequency)
         blocks: list[np.ndarray] = []
 
@@ -209,7 +211,7 @@ class CharacterizationTest:
                 case "sine":
                     for freq in test["frequencies"]:
                         for amp in test["amplitudes"]:
-                            policy_times = np.linspace(0, test["duration"], int(policy_frequency * test["duration"]))
+                            policy_times = np.linspace(0, test["duration"], int(policy_frequency * test["duration"]), endpoint=False)
                             sig = self.generate_sine_signal(policy_times, freq, amp, offset)
                             sig_sampled = np.repeat(sig, repeat)
                             block = np.concatenate([
@@ -220,7 +222,7 @@ class CharacterizationTest:
                 case "square":
                     for freq in test["frequencies"]:
                         for amp in test["amplitudes"]:
-                            policy_times = np.linspace(0, test["duration"], int(policy_frequency * test["duration"]))
+                            policy_times = np.linspace(0, test["duration"], int(policy_frequency * test["duration"]), endpoint=False)
                             sig = self.generate_square_signal(policy_times, freq, amp, offset)
                             sig_sampled = np.repeat(sig, repeat)
                             block = np.concatenate([
@@ -229,7 +231,7 @@ class CharacterizationTest:
                             ])
                             blocks.append(block)
                 case "chirp":
-                    policy_times = np.linspace(0, test["duration"], int(policy_frequency * test["duration"]))
+                    policy_times = np.linspace(0, test["duration"], int(policy_frequency * test["duration"]), endpoint=False)
                     amps = test.get("amplitudes", [test["amplitude"]]) if "amplitude" in test else test["amplitudes"]
                     for amp in amps:
                         sig = self.generate_chirp_signal(
@@ -246,7 +248,7 @@ class CharacterizationTest:
                         ])
                         blocks.append(block)
                 case "gaussian":
-                    policy_times = np.linspace(0, test["duration"], int(policy_frequency * test["duration"]))
+                    policy_times = np.linspace(0, test["duration"], int(policy_frequency * test["duration"]), endpoint=False)
                     amp = test["amplitude"]
                     step_min = test.get("min_step_size", test.get("step_min", 1))
                     step_max = test.get("max_step_size", test.get("step_max", 20))
@@ -364,7 +366,7 @@ if __name__ == "__main__":
     config_classes = _all_config_classes(CharacterizationCfg)
     config_choices = [c.__name__ for c in config_classes]
     parser.add_argument(
-        "--config", type=str, default="CharacterizationCfg",
+        "--config", type=str, default="ERobCfg",
         choices=config_choices,
         help="config class to use",
     )

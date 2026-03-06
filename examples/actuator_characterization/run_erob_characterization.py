@@ -97,8 +97,8 @@ if __name__ == "__main__":
 
     test_signal = np.load(args.signal, allow_pickle=True)
     signal_data = np.asarray(test_signal["signal"]).flatten()
-    policy_frequency = float(test_signal["policy_frequency"])
-    sampling_frequency = float(test_signal["sampling_frequency"])
+    policy_frequency = int(test_signal["policy_frequency"])
+    sampling_frequency = int(test_signal["sampling_frequency"])
     hardware_configs = list(test_signal["hardware_configs"]) if "hardware_configs" in test_signal else []
     signal_configs = list(test_signal["signal_configs"]) if "signal_configs" in test_signal else []
     test_signal.close()
@@ -106,47 +106,49 @@ if __name__ == "__main__":
     bus = ERobBus(channel=channel, motors=motors, bitrate=bitrate)
     bus.connect()
 
-    for name in motors:
-        bus.enable(name)
-
-    # return motor to rest position
-    for name in motors:
-        bus.write_mit_kp_kd(name, kp=0.0, kd=1.0)
-        bus.write_mit_control(motor=name, position=0)
-        bus.read_mit_state(motor=name)
-
-    results: list[dict] = []
-    num_samples = len(signal_data)
-
-    print(f"Running characterization for {len(hardware_configs)} hardware config(s)")
-    print(f"Signal: {num_samples} steps at {sampling_frequency} Hz (~{num_samples / sampling_frequency:.1f} s)")
-    print(f"Policy (command) frequency: {policy_frequency} Hz")
-    print("Interrupt with Ctrl+C to stop early.")
-
-    rate = RateLimiter(frequency=sampling_frequency)
-
     try:
-        for index, hardware_config in enumerate(hardware_configs):
-            print(f"\n--- Test bundle ({index + 1}/{len(hardware_configs)}): kp={hardware_config['joint_kp']}, kd={hardware_config['joint_kd']}, brake_torque={hardware_config['brake_torque']} Nm ---")
+        for name in motors:
+            bus.enable(name)
 
-            result = run_test(bus, signal_data, hardware_config, rate)
-            results.append(result)
-    except KeyboardInterrupt:
-        print("Interrupted by user. Stopping early.")
+        # return motor to rest position
+        for name in motors:
+            bus.write_mit_kp_kd(name, kp=0.0, kd=1.0)
+            bus.write_mit_control(motor=name, position=0)
+            bus.read_mit_state(motor=name)
 
-    print("\nDisabling motors...")
-    for name in motors:
-        bus.disable(name)
-    bus.disconnect()
+        results: list[dict] = []
+        num_samples = len(signal_data)
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(
-        args.output,
-        policy_frequency=policy_frequency,
-        sampling_frequency=sampling_frequency,
-        hardware_configs=hardware_configs,
-        signal_configs=signal_configs,
-        results=np.array(results, dtype=object),
-    )
-    print(f"Saved characterization data to {args.output} ({len(hardware_configs)} x {len(results)} tests)")
+        print(f"Running characterization for {len(hardware_configs)} hardware config(s)")
+        print(f"Signal: {num_samples} steps at {sampling_frequency} Hz (~{num_samples / sampling_frequency:.1f} s)")
+        print(f"Policy (command) frequency: {policy_frequency} Hz")
+        print("Interrupt with Ctrl+C to stop early.")
+
+        rate = RateLimiter(frequency=sampling_frequency)
+
+        try:
+            for index, hardware_config in enumerate(hardware_configs):
+                print(f"\n--- Test bundle ({index + 1}/{len(hardware_configs)}): kp={hardware_config['joint_kp']}, kd={hardware_config['joint_kd']}, brake_torque={hardware_config['brake_torque']} Nm ---")
+
+                result = run_test(bus, signal_data, hardware_config, rate)
+                results.append(result)
+        except KeyboardInterrupt:
+            print("Interrupted by user. Stopping early.")
+
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(
+            args.output,
+            policy_frequency=policy_frequency,
+            sampling_frequency=sampling_frequency,
+            hardware_configs=hardware_configs,
+            signal_configs=signal_configs,
+            results=np.array(results, dtype=object),
+        )
+        print(f"Saved characterization data to {args.output} ({len(hardware_configs)} x {len(results)} tests)")
+    finally:
+        print("\nDisabling motors...")
+        for name in motors:
+            bus.disable(name)
+        bus.disconnect()
+
     print("Program terminated.")

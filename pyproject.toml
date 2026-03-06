@@ -11,11 +11,15 @@ requires-python = ">=3.10"
 dependencies = [
     "deepdiff",
     "loop-rate-limiters",
-    "matplotlib",
     "numpy",
     "python-can",
     "robstride-dynamics",
     "tqdm",
+]
+
+[project.optional-dependencies]
+examples = [
+    "matplotlib",
 ]
 
 [tool.hatchling.build.targets.wheel]

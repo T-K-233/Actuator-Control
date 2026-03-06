@@ -13,7 +13,6 @@ source = { editable = "." }
 dependencies = [
     { name = "deepdiff" },
     { name = "loop-rate-limiters" },
-    { name = "matplotlib" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "python-can" },
@@ -21,16 +20,22 @@ dependencies = [
     { name = "tqdm" },
 ]
 
+[package.optional-dependencies]
+examples = [
+    { name = "matplotlib" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "deepdiff" },
     { name = "loop-rate-limiters" },
-    { name = "matplotlib" },
+    { name = "matplotlib", marker = "extra == 'examples'" },
     { name = "numpy" },
     { name = "python-can" },
     { name = "robstride-dynamics" },
     { name = "tqdm" },
 ]
+provides-extras = ["examples"]
 
 [[package]]
 name = "colorama"

@@ -4,6 +4,8 @@ This example shows the procedure to profile an actuator with a torque test stand
 
 In the characterization test, the actuator under test is commanded with a test signal to move to target positions. The actual position and velocity are measured. Commands are transmitted at **sampling frequency**, while the actual command values are generated at **policy frequency** to simulate an RL policy output.
 
+**Plotting** (`generate_test_signal.py --save-plot` / `--show`, and `plot_data.py`) requires the optional `examples` extra: `pip install actuator-control[examples]`.
+
 ## Usage
 
 1. **Generate test signal**:
@@ -46,10 +48,10 @@ Saved as a single NPZ (e.g. `data/test_signal.npz`):
 |-----|-------------|
 | `times` | `(N,)` float32 — Time in seconds at sampling rate. |
 | `signal` | `(N,)` float32 — Position command (rad) at sampling rate. |
-| `commands` | `(M,)` float32 — Position commands at policy (command) rate; `M = N / (sampling_frequency / policy_frequency)`. |
+| `commands` | `(M,)` float32 — Position commands at policy (command) rate; `M = N // (sampling_frequency // policy_frequency)`. |
 | `steps` | `(M,)` int64 — Sampling-step indices; `signal[steps] == commands`. |
-| `policy_frequency` | float — Command update rate (Hz). |
-| `sampling_frequency` | float — Actuator communication rate (Hz). |
+| `policy_frequency` | int — Command update rate (Hz). |
+| `sampling_frequency` | int — Actuator communication rate (Hz). |
 | `rest_duration` | float — Rest time (s) between segments. |
 | `hardware_configs` | list of dict — e.g. `joint_kp`, `joint_kd`, `brake_torque` per run. |
 | `signal_configs` | list of dict — Signal-type configs used to build the trajectory. |
@@ -58,8 +60,8 @@ Saved as a single NPZ (e.g. `data/test_signal.npz`):
 
 | Key | Description |
 |-----|-------------|
-| `policy_frequency` | float — From signal NPZ. |
-| `sampling_frequency` | float — From signal NPZ. |
+| `policy_frequency` | int — From signal NPZ. |
+| `sampling_frequency` | int — From signal NPZ. |
 | `hardware_configs` | list of dict — Same as in signal NPZ. |
 | `signal_configs` | list of dict — Same as in signal NPZ. |
 | `results` | array of object — One dict per hardware config. Each dict contains: `hardware_config`, `kp`, `kd`, `brake_torque`, `times`, `target_positions`, `measured_positions`, `measured_velocities`. |
