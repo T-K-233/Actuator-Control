@@ -8,19 +8,25 @@ In the characterization test, the actuator under test is commanded with a test s
 
 ## Usage
 
-1. **Generate test signal**:
+1. Install dependencies
+
+    ```bash
+    uv sync --extra examples
+    ```
+
+2. Generate test signal:
 
    ```bash
    python generate_test_signal.py --config ERobCfg -o data/test_signal.npz [--save-plot] [--show]
    ```
 
-2. **Run characterization** on hardware (CAN channel, motor ID, etc. are set in the script):
+3. Run characterization on hardware (CAN channel, motor ID, etc. are set in the script):
 
    ```bash
    python run_erob_characterization.py --signal data/test_signal.npz -o data/characterization_data.npz
    ```
 
-3. **Plot results**:
+4. Plot results:
 
    ```bash
    python plot_data.py data/characterization_data.npz [-o data/characterization_plot.png] [--config 0]
