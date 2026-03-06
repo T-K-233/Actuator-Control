@@ -6,25 +6,9 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-
-try:
-    import matplotlib.pyplot as _plt
-except ImportError:  # pragma: no cover - behavior depends on optional dependency
-    _plt = None
+import matplotlib.pyplot as plt
 
 
-class _MatplotlibProxy:
-    """Proxy that raises a clear error if matplotlib is required but not installed."""
-
-    def __getattr__(self, name):
-        raise RuntimeError(
-            "Matplotlib is required for plotting but is not installed. "
-            "Install the 'examples' extra or install 'matplotlib' directly "
-            "to use plotting options (e.g., --show/--save-plot)."
-        )
-
-
-plt = _plt if _plt is not None else _MatplotlibProxy()
 class CharacterizationCfg:
     """Base configuration for characterization tests."""
     seed: int
