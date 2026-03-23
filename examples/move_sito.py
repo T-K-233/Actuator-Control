@@ -3,7 +3,7 @@ import time
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
-from actuator_control.sito import SitoBus, Motor
+from actuator_control import Motor, SitoBus
 
 
 channel = "can2"

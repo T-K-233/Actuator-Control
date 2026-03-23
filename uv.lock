@@ -16,7 +16,6 @@ dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "python-can" },
-    { name = "robstride-dynamics" },
     { name = "tqdm" },
 ]
 
@@ -32,7 +31,6 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'examples'" },
     { name = "numpy" },
     { name = "python-can" },
-    { name = "robstride-dynamics" },
     { name = "tqdm" },
 ]
 provides-extras = ["examples"]
@@ -767,21 +765,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
-]
-
-[[package]]
-name = "robstride-dynamics"
-version = "0.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "python-can" },
-    { name = "tqdm" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/ac/f587abe00588edbdbe5a5cb7a8b83f1d50ed85342510d76b086c2bae8842/robstride_dynamics-0.0.1.tar.gz", hash = "sha256:31276525268f25b4d7f21d9b13dd4360b6dfd7b3673d6f527ad204f4fbc4fe9a", size = 27991, upload-time = "2025-10-20T00:21:42.822Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/6f/199daebff22aa77fbbd68f9ab01b41ef1842c8013ee227a7fab16a618fc1/robstride_dynamics-0.0.1-py3-none-any.whl", hash = "sha256:61091ab63ff5768fd77cc71fffe8127e7629b3dd25ae6ff8fea7436d8094e64d", size = 8637, upload-time = "2025-10-20T00:21:41.797Z" },
 ]
 
 [[package]]

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "actuator-control"
 version = "0.1.0"
-description = "Add your description here"
+description = "Unified CAN actuator control helpers for eRob, Robstride, and Sito motors."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -13,7 +13,6 @@ dependencies = [
     "loop-rate-limiters",
     "numpy",
     "python-can",
-    "robstride-dynamics",
     "tqdm",
 ]
 

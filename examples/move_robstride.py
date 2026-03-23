@@ -3,10 +3,10 @@ import time
 import numpy as np
 from loop_rate_limiters import RateLimiter
 
-from actuator_control.robstride import RobstrideBus, Motor
+from actuator_control import Motor, RobstrideBus
 
 
-channel = "can1"
+channel = "can0"
 bitrate = 1000000
 
 

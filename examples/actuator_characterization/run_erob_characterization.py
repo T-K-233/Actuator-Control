@@ -10,8 +10,7 @@ import numpy as np
 from loop_rate_limiters import RateLimiter
 import tqdm
 
-from actuator_control.erob import ERobBus
-from actuator_control.common import Motor
+from actuator_control import ERobBus, Motor
 
 channel = "can0"
 bitrate = 1_000_000
