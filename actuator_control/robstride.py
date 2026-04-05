@@ -185,8 +185,6 @@ class RobstrideBus(ActuatorBus):
             device_id = frame.arbitration_id & 0xFF
             return communication_type, extra_data, device_id, frame.data
 
-        return None
-
     def receive_status_frame(self, motor: str) -> tuple[float, float, float, float]:
         """Receive, validate, and decode a Robstride status frame."""
         motor_id = self._require_motor(motor).id
@@ -208,25 +206,25 @@ class RobstrideBus(ActuatorBus):
         model = self._require_model(motor)
 
         status_uncalibrated = (extra_data >> 13) & 0x01
-        status_stall = (extra_data >> 12) & 0x01
+        status_stall_overload = (extra_data >> 12) & 0x01
         status_magnetic_encoder_fault = (extra_data >> 11) & 0x01
         status_overtemperature = (extra_data >> 10) & 0x01
-        status_overcurrent = (extra_data >> 9) & 0x01
+        status_gate_driver_fault = (extra_data >> 9) & 0x01
         status_undervoltage = (extra_data >> 8) & 0x01
         device_id = extra_data & 0xFF
 
         if status_uncalibrated:
-            print(f"WARNING: {motor} is uncalibrated")
-        if status_stall:
-            print(f"WARNING: {motor} is stalled")
+            print(f"WARNING: {motor} uncalibrated")
+        if status_stall_overload:
+            print(f"WARNING: {motor} stall overload fault")
         if status_magnetic_encoder_fault:
-            print(f"WARNING: {motor} has a magnetic encoder fault")
+            print(f"WARNING: {motor} magnetic encoder fault")
         if status_overtemperature:
-            print(f"WARNING: {motor} is overtemperature")
-        if status_overcurrent:
-            print(f"WARNING: {motor} is overcurrent")
+            print(f"WARNING: {motor} overtemperature")
+        if status_gate_driver_fault:
+            print(f"WARNING: {motor} gate driver fault")
         if status_undervoltage:
-            print(f"WARNING: {motor} is undervoltage")
+            print(f"WARNING: {motor} undervoltage")
         if device_id != motor_id:
             print(f"WARNING: Invalid device ID, got {device_id}, expected {motor_id}")
 
@@ -239,25 +237,25 @@ class RobstrideBus(ActuatorBus):
         if communication_type == CommunicationType.FAULT_REPORT:
             fault_value, warning_value = struct.unpack("<LL", data)
             warning_motor_overtemperature = warning_value & 0x01
-            fault_stall_current = (warning_value >> 14) & 0x01
-            fault_encoder_uncalibrated = (fault_value >> 7) & 0x01
+            fault_i2t_overload = (fault_value >> 14) & 0x01
+            fault_uncalibrated = (fault_value >> 7) & 0x01
             fault_overvoltage = (fault_value >> 3) & 0x01
             fault_undervoltage = (fault_value >> 2) & 0x01
-            fault_gate = (fault_value >> 1) & 0x01
-            fault_motor_overtemperature = fault_value & 0x01
+            fault_gate_driver_fault = (fault_value >> 1) & 0x01
+            fault_overtemperature = fault_value & 0x01
 
-            if fault_motor_overtemperature:
+            if fault_overtemperature:
                 print(f"FAULT: {motor} overtemperature")
-            if fault_gate:
-                print(f"FAULT: {motor} drive gate fault")
+            if fault_gate_driver_fault:
+                print(f"FAULT: {motor} gate driver fault")
             if fault_undervoltage:
                 print(f"FAULT: {motor} undervoltage")
             if fault_overvoltage:
                 print(f"FAULT: {motor} overvoltage")
-            if fault_encoder_uncalibrated:
-                print(f"FAULT: {motor} uncalibrated")
-            if fault_stall_current:
-                print(f"FAULT: {motor} stalled")
+            if fault_uncalibrated:
+                print(f"FAULT: {motor} encoder uncalibrated")
+            if fault_i2t_overload:
+                print(f"FAULT: {motor} i2t overload (locked-rotor protection)")
             if warning_motor_overtemperature:
                 print(f"WARNING: {motor} overtemperature")
             raise RuntimeError(f"Received fault frame from {motor}: {data!r}")
