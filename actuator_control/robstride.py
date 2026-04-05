@@ -336,11 +336,11 @@ class RobstrideBus(ActuatorBus):
     def disable(self, motor: str, clear_fault: bool = False) -> None:
         """Disable a Robstride actuator, optionally clearing cached fault state."""
         device_id = self._require_motor(motor).id
+        if clear_fault:
+            self.clear_fault_status(motor)
         data = struct.pack("<BBHL", 0x01 if clear_fault else 0x00, 0x00, 0x00, 0x00)
         self.transmit(CommunicationType.DISABLE, self.host_id, device_id, data)
         self.receive_status_frame(motor)
-        if clear_fault:
-            self.clear_fault_status(motor)
 
     def read(self, motor: str, parameter_type: RobstrideParameter) -> Value:
         """Read a typed Robstride parameter descriptor."""
