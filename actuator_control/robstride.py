@@ -330,12 +330,10 @@ class RobstrideBus(ActuatorBus):
         self.transmit(CommunicationType.ENABLE, self.host_id, device_id)
         self.receive_status_frame(motor)
 
-    def disable(self, motor: str, clear_fault: bool = False) -> None:
-        """Disable a Robstride actuator, optionally clearing cached fault state."""
+    def disable(self, motor: str) -> None:
+        """Disable a Robstride actuator."""
         device_id = self._require_motor(motor).id
-        if clear_fault:
-            self.clear_fault_status(motor)
-        data = struct.pack("<BBHL", 0x01 if clear_fault else 0x00, 0x00, 0x00, 0x00)
+        data = struct.pack("<BBHL", 0x00, 0x00, 0x00, 0x00)
         self.transmit(CommunicationType.DISABLE, self.host_id, device_id, data)
         self.receive_status_frame(motor)
 
@@ -477,11 +475,12 @@ class RobstrideBus(ActuatorBus):
         self._require_motor(motor)
         return list(self._fault_status.get(motor, []))
 
-    def clear_fault_status(self, motor: str | None = None) -> None:
-        """Clear locally cached fault and non-normal status for one motor or the whole bus."""
-        if motor is None:
-            self._fault_status.clear()
-            return
+    def clear_fault(self, motor: str) -> None:
+        """Clear the fault status for a Robstride actuator."""
+        device_id = self._require_motor(motor).id
 
-        self._require_motor(motor)
+        # to clear the fault status of a Robstride actuator, we need to send a disable command with data[0] = 0x01
+        data = struct.pack("<BBHL", 0x01, 0x00, 0x00, 0x00)
+        self.transmit(CommunicationType.DISABLE, self.host_id, device_id, data)
+        self.receive_status_frame(motor)
         self._fault_status.pop(motor, None)
