@@ -1,0 +1,15 @@
+[package]
+name = "actuator-control"
+version = "0.5.0"
+edition = "2024"
+license = "MIT"
+description = "Rust CAN actuator control for eRob, Robstride, and Sito actuators."
+
+[lib]
+name = "actuator_control"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["abi3-py310", "extension-module"] }
+socketcan = "3.5"
