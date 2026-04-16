@@ -264,7 +264,7 @@ class CharacterizationTest:
 
         signal = np.concatenate(blocks)
 
-        times = np.arange(signal.shape[0], dtype=np.float64) * dt
+        times = np.arange(signal.shape[0], dtype=np.float32) * dt
         self.times = times.astype(np.float32)
         self.signal = signal.astype(np.float32)
 

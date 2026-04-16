@@ -10,13 +10,13 @@ import numpy as np
 from loop_rate_limiters import RateLimiter
 import tqdm
 
-from actuator_control import ERobBus, Motor
+from actuator_control import Actuator, ERobBus
 
 channel = "can0"
 bitrate = 1_000_000
 
-motors = {
-    "actuator": Motor(id=15, model="eRob70"),
+actuators = {
+    "actuator": Actuator(id=15, model="eRob70"),
 }
 
 
@@ -37,13 +37,13 @@ def run_test(
     kd = hardware_config["joint_kd"]
     brake_torque = hardware_config["brake_torque"]
 
-    for name in motors:
+    for name in actuators:
         bus.write_mit_kp_kd(name, kp, kd)
 
     set_brake_torque(brake_torque)
 
     num_samples = len(signal_data)
-    times = np.zeros(num_samples, dtype=np.float64)
+    times = np.zeros(num_samples, dtype=np.float32)
     target_positions = np.zeros(num_samples, dtype=np.float32)
     measured_positions = np.zeros(num_samples, dtype=np.float32)
     measured_velocities = np.zeros(num_samples, dtype=np.float32)
@@ -51,9 +51,14 @@ def run_test(
     start_time = time.perf_counter()
     for i in tqdm.trange(num_samples):
         target_position = float(signal_data[i])
-        for name in motors:
-            bus.write_mit_control(motor=name, position=target_position)
-            measured_position, measured_velocity = bus.read_mit_state(motor=name)
+        for name in actuators:
+            bus.write_mit_control(actuator=name, position=target_position)
+            bus.request_state(actuator=name)
+            state = bus.get_state(actuator=name)
+            if state is None:
+                raise RuntimeError(f"No cached state available for actuator {name!r}")
+            measured_position = state.position
+            measured_velocity = state.velocity
 
         times[i] = time.perf_counter() - start_time
         target_positions[i] = target_position
@@ -61,10 +66,15 @@ def run_test(
         measured_velocities[i] = measured_velocity
         rate.sleep()
 
-    # return motor to rest position
-    for name in motors:
-        bus.write_mit_control(motor=name, position=0)
-        measured_position, measured_velocity = bus.read_mit_state(motor=name)
+    # return actuator to rest position
+    for name in actuators:
+        bus.write_mit_control(actuator=name, position=0)
+        bus.request_state(actuator=name)
+        state = bus.get_state(actuator=name)
+        if state is None:
+            raise RuntimeError(f"No cached state available for actuator {name!r}")
+        measured_position = state.position
+        measured_velocity = state.velocity
 
     return {
         "hardware_config": hardware_config,
@@ -102,18 +112,21 @@ if __name__ == "__main__":
     signal_configs = list(test_signal["signal_configs"]) if "signal_configs" in test_signal else []
     test_signal.close()
 
-    bus = ERobBus(channel=channel, motors=motors, bitrate=bitrate)
+    bus = ERobBus(channel=channel, actuators=actuators, bitrate=bitrate)
     bus.connect()
 
     try:
-        for name in motors:
+        for name in actuators:
             bus.enable(name)
 
-        # return motor to rest position
-        for name in motors:
+        # return actuator to rest position
+        for name in actuators:
             bus.write_mit_kp_kd(name, kp=0.0, kd=1.0)
-            bus.write_mit_control(motor=name, position=0)
-            bus.read_mit_state(motor=name)
+            bus.write_mit_control(actuator=name, position=0)
+            bus.request_state(actuator=name)
+            state = bus.get_state(actuator=name)
+            if state is None:
+                raise RuntimeError(f"No cached state available for actuator {name!r}")
 
         results: list[dict] = []
         num_samples = len(signal_data)
@@ -145,8 +158,8 @@ if __name__ == "__main__":
         )
         print(f"Saved characterization data to {args.output} ({len(hardware_configs)} x {len(results)} tests)")
     finally:
-        print("\nDisabling motors...")
-        for name in motors:
+        print("\nDisabling actuators...")
+        for name in actuators:
             bus.disable(name)
         bus.disconnect()
 

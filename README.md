@@ -1,8 +1,12 @@
 # Actuator Control
 
-Python SDK package for controlling robotic actuators over the CAN bus.
+Actuator Control is a communication library to interface with eRob, Robstride, and Sito actuators over
+SocketCAN. The implementation is in Rust, with Python bindings.
 
 ## Installation
+
+The package uses `maturin` to provide Python-Rust binding under the hood, but `uv` remains the user-facing
+workflow for syncing, building, and running the project.
 
 ```bash
 uv sync
@@ -14,77 +18,74 @@ For the plotting utilities in `examples/actuator_characterization`:
 uv sync --extra examples
 ```
 
-## Quick start
+## Runtime model
+
+All three backends now use the same receive architecture:
+
+1. Python API calls send command frames on the calling thread
+2. a dedicated receive thread continuously reads the bus
+3. received frames are dispatched by protocol/message type
+4. the receiver updates the local actuator state buffer
+5. `get_state()` returns the latest cached state
+
+For backends without continuous actuator feedback, call `request_state()`
+before `get_state()` when you need a fresh sample.
+
+## Examples
 
 ```python
-from actuator_control import ERobBus, Motor
+from actuator_control import Actuator, ERobBus
 
-motors = {
-    "joint": Motor(id=15, model="eRob70"),
+actuators = {
+    "joint": Actuator(id=15, model="eRob70"),
 }
 
-bus = ERobBus(channel="can0", motors=motors, bitrate=1_000_000)
+bus = ERobBus(channel="can0", actuators=actuators, bitrate=1_000_000)
 bus.connect()
 
 try:
     bus.enable("joint")
     bus.write_mit_kp_kd("joint", kp=10.0, kd=1.0)
     bus.write_mit_control("joint", position=0.25)
-    position, velocity = bus.read_mit_state("joint")
-    print(position, velocity)
+    bus.request_state("joint")
+    state = bus.get_state("joint")
+    if state is not None:
+        print(state.position, state.velocity)
 finally:
     bus.disconnect()
 ```
 
-## Motor configuration
-
-Motors are declared as a dictionary keyed by your logical motor names:
-
-```python
-from actuator_control import Motor
-
-motors = {
-    "left_wrist_roll": Motor(id=0x16, model="TA40-50"),
-    "left_wrist_pitch": Motor(id=0x17, model="TA40-50"),
-}
-```
-
-Motor IDs must be unique within one bus instance.
+More examples can be found in `./examples/` folder.
 
 ## Calibration
 
-Optional calibration is applied in the shared MIT helpers before commands are sent and after state is read:
+Optional calibration is passed as a Python dictionary:
 
 ```python
 calibration = {
-    "left_wrist_roll": {
+    "joint": {
         "direction": -1,
         "homing_offset": 0.15,
     },
 }
 ```
 
-- `direction` flips the sign of position, velocity, and torque when set to `-1`.
-- `homing_offset` shifts the raw actuator zero point in radians.
-
-The calibration dictionary should contain entries for every motor you want transformed.
-
 ## Backend notes
 
 ### eRob
 
-- eRob currently exposes MIT-like semantics on top of the actuator's position-mode protocol.
-- `velocity` and `torque` arguments in `write_mit_control()` are accepted for API compatibility, but only position is used by the backend.
-- Controller gains are converted into the vendor-specific position/velocity loop registers.
+- MIT control is still mapped onto the position-mode protocol.
+- `request_state()` performs the explicit register reads needed to refresh
+  the local state cache.
+- `write_mit_kp_kd()` converts MIT gains into the actuator position/velocity
+  loop registers.
 
 ### Robstride
 
-- Robstride communication is implemented directly in this package using the same private CAN protocol and MIT scaling tables as the public vendor SDK.
-- `write_mit_kp_kd()` caches gains locally because the protocol expects them on every MIT command frame.
-- Additional Robstride-specific protocol constants are exported as `RobstrideCommunicationType` and `RobstrideParameterType`.
+- MIT gains are cached locally and packed into each operation-control frame.
 
 ### Sito
 
-- Sito starts a background receiver thread after `connect()` and keeps the latest feedback in memory.
-- `read_mit_state()` returns the most recently received state, so it depends on feedback messages arriving from the actuator.
-- `control_frequency` controls both command cadence in examples and requested feedback intervals on the bus.
+- the actuator streams feedback continuously after `enable()`.
+- `with_control_frequency()` sets the requested feedback intervals for the
+  feedback-1 and feedback-2 streams.

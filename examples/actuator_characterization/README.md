@@ -20,7 +20,7 @@ In the characterization test, the actuator under test is commanded with a test s
    python generate_test_signal.py --config ERobCfg -o data/test_signal.npz [--save-plot] [--show]
    ```
 
-3. Run characterization on hardware (CAN channel, motor ID, etc. are set in the script):
+3. Run characterization on hardware (CAN channel, actuator ID, etc. are set in the script):
 
    ```bash
    python run_erob_characterization.py --signal data/test_signal.npz -o data/characterization_data.npz
