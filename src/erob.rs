@@ -155,7 +155,10 @@ impl ErobBus {
         )?;
         self.write(actuator, erob::parameter::MOTION_MODE, 1)?;
 
-        let profile_limit = (erob::COUNTS_PER_RAD * 100.0 * (2.0 * std::f64::consts::PI)) as i32;
+        let profile_limit = round_to_i32(
+            erob::COUNTS_PER_RAD * 100.0 * (2.0 * std::f64::consts::PI),
+            "eRob profile limit",
+        )?;
         self.write(actuator, erob::parameter::ACCELERATION, profile_limit)?;
         self.write(actuator, erob::parameter::DECELERATION, profile_limit)?;
         self.write(actuator, erob::parameter::TARGET_SPEED, profile_limit)?;
@@ -196,7 +199,7 @@ impl ErobBus {
             self.write(actuator, erob::parameter::PID_ADJUSTMENT, 0)?;
         }
 
-        let (kp_raw, kd_raw) = calculate_erob_pd(kp, kd);
+        let (kp_raw, kd_raw) = calculate_erob_pd(kp, kd)?;
         self.write_subindex(actuator, erob::parameter::POSITION_LOOP_GAIN, 0x01, kp_raw)?;
         self.write_subindex(actuator, erob::parameter::SPEED_LOOP_GAIN, 0x01, kd_raw)?;
         self.write_subindex(actuator, erob::parameter::SPEED_LOOP_INTEGRAL, 0x01, 0)?;
@@ -213,7 +216,10 @@ impl ErobBus {
         let actuator_config = self.require_actuator(actuator)?;
         let calibration = self.calibration_for(actuator)?;
         let (position, _, _) = calibration.apply_command(position, velocity, torque);
-        let target_counts = ((position + std::f64::consts::PI) * erob::COUNTS_PER_RAD) as i32;
+        let target_counts = round_to_i32(
+            (position + std::f64::consts::PI) * erob::COUNTS_PER_RAD,
+            &format!("eRob target position counts for actuator {actuator:?}"),
+        )?;
 
         let mut write_payload = Vec::with_capacity(6);
         write_payload.extend_from_slice(&erob::parameter::TARGET_POSITION.to_be_bytes());
@@ -450,9 +456,9 @@ fn decode_signed_be(payload: &[u8]) -> Result<i32> {
     }
 }
 
-fn calculate_erob_pd(desired_kp: f64, desired_kd: f64) -> (i32, i32) {
+fn calculate_erob_pd(desired_kp: f64, desired_kd: f64) -> Result<(i32, i32)> {
     if desired_kd == 0.0 {
-        return (0, 0);
+        return Ok((0, 0));
     }
 
     let torque_constant = 0.132e-3;
@@ -464,7 +470,27 @@ fn calculate_erob_pd(desired_kp: f64, desired_kd: f64) -> (i32, i32) {
     let kd_erob = ma_per_count * velocity_gain;
     let kp_erob = (desired_kp * position_gain) / (desired_kd * velocity_gain);
 
-    (kp_erob.round() as i32, kd_erob.round() as i32)
+    Ok((
+        round_to_i32(kp_erob, "eRob proportional gain")?,
+        round_to_i32(kd_erob, "eRob derivative gain")?,
+    ))
+}
+
+fn round_to_i32(value: f64, description: &str) -> Result<i32> {
+    if !value.is_finite() {
+        return Err(ActuatorError::Protocol(format!(
+            "{description} must be finite, got {value}"
+        )));
+    }
+
+    let rounded = value.round();
+    if rounded < f64::from(i32::MIN) || rounded > f64::from(i32::MAX) {
+        return Err(ActuatorError::Protocol(format!(
+            "{description} is out of range: {value}"
+        )));
+    }
+
+    Ok(rounded as i32)
 }
 
 #[cfg(test)]
@@ -483,5 +509,20 @@ mod tests {
         assert!((position - 1.0).abs() < 1e-9);
         assert!((velocity - 2.0).abs() < 1e-9);
         assert!((torque - 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn checked_erob_rounds_to_nearest_count() {
+        assert_eq!(round_to_i32(1.6, "value").unwrap(), 2);
+        assert_eq!(round_to_i32(-1.6, "value").unwrap(), -2);
+    }
+
+    #[test]
+    fn checked_erob_rejects_non_finite_or_out_of_range_values() {
+        let error = round_to_i32(f64::INFINITY, "value").unwrap_err();
+        assert!(matches!(error, ActuatorError::Protocol(_)));
+
+        let error = round_to_i32(f64::from(i32::MAX) + 1.0, "value").unwrap_err();
+        assert!(matches!(error, ActuatorError::Protocol(_)));
     }
 }

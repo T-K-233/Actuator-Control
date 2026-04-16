@@ -17,6 +17,7 @@ const RX_TIMEOUT: Duration = Duration::from_millis(20);
 const COMMAND_TIMEOUT: Duration = Duration::from_millis(100);
 
 struct PendingRead {
+    actuator_id: u8,
     parameter: ParameterType,
     actuator_name: String,
     tx: SyncSender<ParameterValue>,
@@ -219,6 +220,7 @@ impl RobstrideBus {
             }
 
             *pending = Some(PendingRead {
+                actuator_id: actuator_config.id,
                 parameter,
                 actuator_name: actuator.to_string(),
                 tx: reply_tx,
@@ -582,22 +584,29 @@ fn wait_for_scan_response(
 }
 
 fn handle_read_parameter(shared: &SharedState, parsed: robstride::ParsedFrame) {
-    let pending = shared
-        .pending_reads
-        .lock()
-        .expect("pending poisoned")
-        .take();
-    let Some(pending) = pending else {
+    let mut pending_reads = shared.pending_reads.lock().expect("pending poisoned");
+    let Some(inflight) = pending_reads.as_ref() else {
         return;
     };
 
-    if parsed.data.len() < 8 {
+    if parsed.device_id != inflight.actuator_id || parsed.data.len() < 8 {
         return;
     }
 
-    let Ok(value) = robstride::decode_parameter_value(pending.parameter, &parsed.data[4..8]) else {
+    let response_parameter_id = u16::from_le_bytes([parsed.data[0], parsed.data[1]]);
+    if response_parameter_id != inflight.parameter.id {
+        return;
+    }
+
+    let Ok(value) = robstride::decode_parameter_value(inflight.parameter, &parsed.data[4..8])
+    else {
         return;
     };
+
+    let pending = pending_reads
+        .take()
+        .expect("pending read matches inflight request");
+    drop(pending_reads);
 
     if let Some(state) = shared
         .states
@@ -689,10 +698,160 @@ fn scale_unsigned(value: f64, limit: f64) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use std::sync::atomic::{AtomicBool, AtomicU64};
+    use std::sync::mpsc::{TryRecvError, sync_channel};
+    use std::sync::{Mutex, RwLock};
+
+    fn shared_state_with_pending(
+        actuator_name: &str,
+        actuator_id: u8,
+        parameter: ParameterType,
+        tx: SyncSender<ParameterValue>,
+    ) -> SharedState {
+        SharedState {
+            running: AtomicBool::new(false),
+            frames_sent: AtomicU64::new(0),
+            frames_received: AtomicU64::new(0),
+            states: RwLock::new(HashMap::from([(
+                actuator_name.to_string(),
+                CachedActuatorState::default(),
+            )])),
+            pending_reads: Mutex::new(Some(PendingRead {
+                actuator_id,
+                parameter,
+                actuator_name: actuator_name.to_string(),
+                tx,
+            })),
+            pending_status: Mutex::new(HashMap::new()),
+        }
+    }
 
     #[test]
     fn signed_scaling_stays_in_range() {
         assert_eq!(scale_signed(-10.0, 5.0), 0);
         assert_eq!(scale_signed(10.0, 5.0), 65_534);
+    }
+
+    #[test]
+    fn read_parameter_ignores_frame_for_other_actuator() {
+        let (tx, rx) = sync_channel(1);
+        let shared = shared_state_with_pending("knee", 0x01, robstride::parameter::MEASURED_POSITION, tx);
+
+        handle_read_parameter(
+            &shared,
+            robstride::ParsedFrame {
+                communication_type: CommunicationType::ReadParameter,
+                extra_data: 0,
+                device_id: 0x02,
+                data: [
+                    0x16,
+                    0x30,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x80,
+                    0x3F,
+                ]
+                .to_vec(),
+            },
+        );
+
+        assert!(shared
+            .pending_reads
+            .lock()
+            .expect("pending poisoned")
+            .is_some());
+        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)));
+        assert!(!shared
+            .states
+            .read()
+            .expect("states poisoned")
+            .get("knee")
+            .expect("state initialized")
+            .has_feedback);
+    }
+
+    #[test]
+    fn read_parameter_ignores_frame_for_other_parameter() {
+        let (tx, rx) = sync_channel(1);
+        let shared = shared_state_with_pending("knee", 0x01, robstride::parameter::MEASURED_POSITION, tx);
+
+        handle_read_parameter(
+            &shared,
+            robstride::ParsedFrame {
+                communication_type: CommunicationType::ReadParameter,
+                extra_data: 0,
+                device_id: 0x01,
+                data: [
+                    0x17,
+                    0x30,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x80,
+                    0x3F,
+                ]
+                .to_vec(),
+            },
+        );
+
+        assert!(shared
+            .pending_reads
+            .lock()
+            .expect("pending poisoned")
+            .is_some());
+        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)));
+        assert!(!shared
+            .states
+            .read()
+            .expect("states poisoned")
+            .get("knee")
+            .expect("state initialized")
+            .has_feedback);
+    }
+
+    #[test]
+    fn read_parameter_fulfills_matching_frame_and_updates_state() {
+        let (tx, rx) = sync_channel(1);
+        let shared = shared_state_with_pending("knee", 0x01, robstride::parameter::MEASURED_POSITION, tx);
+
+        handle_read_parameter(
+            &shared,
+            robstride::ParsedFrame {
+                communication_type: CommunicationType::ReadParameter,
+                extra_data: 0,
+                device_id: 0x01,
+                data: [
+                    0x16,
+                    0x30,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x48,
+                    0x41,
+                ]
+                .to_vec(),
+            },
+        );
+
+        assert!(shared
+            .pending_reads
+            .lock()
+            .expect("pending poisoned")
+            .is_none());
+        assert_eq!(rx.recv().expect("matching response received"), ParameterValue::Float(12.5));
+        let state = shared
+            .states
+            .read()
+            .expect("states poisoned")
+            .get("knee")
+            .expect("state initialized")
+            .clone();
+        assert!(state.has_feedback);
+        assert_eq!(state.position, 12.5);
     }
 }

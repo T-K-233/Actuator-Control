@@ -214,9 +214,21 @@ impl SitoBus {
         let config = self.model_config(actuator)?;
         let (position, velocity, torque) = calibration.apply_command(position, velocity, torque);
 
-        let current = (torque / config.torque_constant / config.gear_ratio) as i16;
-        let velocity_counts = (velocity * config.counts_per_rad) as i16;
-        let position_counts = (position * config.counts_per_rad) as i32;
+        let current = round_to_i16(
+            torque / config.torque_constant / config.gear_ratio,
+            "Sito current command",
+            actuator,
+        )?;
+        let velocity_counts = round_to_i16(
+            velocity * config.counts_per_rad,
+            "Sito velocity command counts",
+            actuator,
+        )?;
+        let position_counts = round_to_i32(
+            position * config.counts_per_rad,
+            "Sito position command counts",
+            actuator,
+        )?;
 
         let mut payload = Vec::with_capacity(8);
         payload.extend_from_slice(&current.to_be_bytes());
@@ -290,6 +302,33 @@ impl SitoBus {
             model: actuator_config.model.clone(),
         })
     }
+}
+
+fn round_to_i16(value: f64, description: &str, actuator: &str) -> Result<i16> {
+    round_to_i32(value, description, actuator).and_then(|value| {
+        i16::try_from(value).map_err(|_| {
+            ActuatorError::Protocol(format!(
+                "{description} for actuator {actuator:?} is out of range: {value}"
+            ))
+        })
+    })
+}
+
+fn round_to_i32(value: f64, description: &str, actuator: &str) -> Result<i32> {
+    if !value.is_finite() {
+        return Err(ActuatorError::Protocol(format!(
+            "{description} for actuator {actuator:?} must be finite, got {value}"
+        )));
+    }
+
+    let rounded = value.round();
+    if rounded < f64::from(i32::MIN) || rounded > f64::from(i32::MAX) {
+        return Err(ActuatorError::Protocol(format!(
+            "{description} for actuator {actuator:?} is out of range: {value}"
+        )));
+    }
+
+    Ok(rounded as i32)
 }
 
 impl Drop for SitoBus {
@@ -382,5 +421,20 @@ mod tests {
             .with_control_frequency(50.0)
             .unwrap();
         assert_eq!(bus.feedback_1_interval_ms, 20);
+    }
+
+    #[test]
+    fn checked_sito_command_rounds_to_nearest_count() {
+        assert_eq!(round_to_i16(1.6, "cmd", "joint").unwrap(), 2);
+        assert_eq!(round_to_i32(-1.6, "cmd", "joint").unwrap(), -2);
+    }
+
+    #[test]
+    fn checked_sito_command_rejects_out_of_range_values() {
+        let error = round_to_i16(f64::from(i16::MAX) + 1.0, "cmd", "joint").unwrap_err();
+        assert!(matches!(error, ActuatorError::Protocol(_)));
+
+        let error = round_to_i32(f64::INFINITY, "cmd", "joint").unwrap_err();
+        assert!(matches!(error, ActuatorError::Protocol(_)));
     }
 }

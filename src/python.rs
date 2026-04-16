@@ -432,9 +432,10 @@ fn duration_from_seconds(seconds: f64) -> PyResult<Duration> {
 fn map_error(error: ActuatorError) -> PyErr {
     match error {
         ActuatorError::UnknownActuator(message) => PyKeyError::new_err(message),
-        ActuatorError::DuplicateActuatorId(message) => PyValueError::new_err(message.to_string()),
-        ActuatorError::InvalidCalibration(message) => PyValueError::new_err(message.to_string()),
-        ActuatorError::UnsupportedModel { .. } | ActuatorError::Protocol(_) => {
+        error @ ActuatorError::DuplicateActuatorId(_)
+        | error @ ActuatorError::InvalidCalibration(_)
+        | error @ ActuatorError::UnsupportedModel { .. }
+        | error @ ActuatorError::Protocol(_) => {
             PyValueError::new_err(error.to_string())
         }
         ActuatorError::Timeout { .. } => PyTimeoutError::new_err(error.to_string()),

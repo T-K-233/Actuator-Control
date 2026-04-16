@@ -316,21 +316,32 @@ pub fn decode_parameter_value(parameter: ParameterType, payload: &[u8]) -> Resul
 
 pub fn encode_parameter_value(parameter: ParameterType, value: ParameterValue) -> Result<[u8; 4]> {
     let bytes = match (parameter.data_type, value) {
-        (ParameterDataType::U8, ParameterValue::Integer(value)) => [value as u8, 0, 0, 0],
+        (ParameterDataType::U8, ParameterValue::Integer(value)) => {
+            [u8::try_from(value).map_err(|_| integer_range_error(parameter, value, "u8"))?, 0, 0, 0]
+        }
         (ParameterDataType::I8, ParameterValue::Integer(value)) => {
-            let signed = value as i8;
+            let signed =
+                i8::try_from(value).map_err(|_| integer_range_error(parameter, value, "i8"))?;
             [signed as u8, 0, 0, 0]
         }
         (ParameterDataType::U16, ParameterValue::Integer(value)) => {
-            let raw = (value as u16).to_le_bytes();
+            let raw = u16::try_from(value)
+                .map_err(|_| integer_range_error(parameter, value, "u16"))?
+                .to_le_bytes();
             [raw[0], raw[1], 0, 0]
         }
         (ParameterDataType::I16, ParameterValue::Integer(value)) => {
-            let raw = (value as i16).to_le_bytes();
+            let raw = i16::try_from(value)
+                .map_err(|_| integer_range_error(parameter, value, "i16"))?
+                .to_le_bytes();
             [raw[0], raw[1], 0, 0]
         }
-        (ParameterDataType::U32, ParameterValue::Integer(value)) => (value as u32).to_le_bytes(),
-        (ParameterDataType::I32, ParameterValue::Integer(value)) => (value as i32).to_le_bytes(),
+        (ParameterDataType::U32, ParameterValue::Integer(value)) => u32::try_from(value)
+            .map_err(|_| integer_range_error(parameter, value, "u32"))?
+            .to_le_bytes(),
+        (ParameterDataType::I32, ParameterValue::Integer(value)) => i32::try_from(value)
+            .map_err(|_| integer_range_error(parameter, value, "i32"))?
+            .to_le_bytes(),
         (ParameterDataType::F32, ParameterValue::Float(value)) => value.to_le_bytes(),
         _ => {
             return Err(ActuatorError::Protocol(format!(
@@ -341,6 +352,13 @@ pub fn encode_parameter_value(parameter: ParameterType, value: ParameterValue) -
     };
 
     Ok(bytes)
+}
+
+fn integer_range_error(parameter: ParameterType, value: i64, target_type: &str) -> ActuatorError {
+    ActuatorError::Protocol(format!(
+        "parameter {} value {value} does not fit in {target_type}",
+        parameter.name
+    ))
 }
 
 pub fn decode_status(model: &str, parsed: &ParsedFrame) -> Result<StatusFrame> {
@@ -438,4 +456,37 @@ pub fn decode_status(model: &str, parsed: &ParsedFrame) -> Result<StatusFrame> {
         faults,
         is_fault: false,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_parameter_value_rejects_out_of_range_integer_values() {
+        let error = encode_parameter_value(
+            ParameterType {
+                id: 0x0001,
+                data_type: ParameterDataType::I16,
+                name: "test_i16",
+            },
+            ParameterValue::Integer(i64::from(i16::MAX) + 1),
+        )
+        .unwrap_err();
+        assert!(matches!(error, ActuatorError::Protocol(_)));
+    }
+
+    #[test]
+    fn encode_parameter_value_preserves_valid_integer_values() {
+        let bytes = encode_parameter_value(
+            ParameterType {
+                id: 0x0001,
+                data_type: ParameterDataType::I32,
+                name: "test_i32",
+            },
+            ParameterValue::Integer(-42),
+        )
+        .unwrap();
+        assert_eq!(bytes, (-42i32).to_le_bytes());
+    }
 }
