@@ -10,6 +10,8 @@ from .protocol import EROB_PROTOCOL
 
 
 class ERobBus(BusBase):
+    """High-level Python wrapper for the eRob CAN backend."""
+
     protocol = EROB_PROTOCOL
 
     def __init__(
@@ -19,6 +21,14 @@ class ERobBus(BusBase):
         calibration: dict[str, dict[str, Any]] | None = None,
         bitrate: int = 1_000_000,
     ) -> None:
+        """Create an eRob bus wrapper.
+
+        Args:
+            channel: CAN interface name, e.g. `can0`.
+            actuators: Actuators keyed by actuator name.
+            calibration: Optional per-actuator calibration overrides.
+            bitrate: CAN bitrate in bits per second.
+        """
         super().__init__(channel, actuators, calibration, bitrate)
         self._core = _ErobBus(
             channel=channel,
@@ -28,7 +38,9 @@ class ERobBus(BusBase):
         )
 
     def read(self, actuator: str, parameter: int) -> int:
+        """Read one eRob parameter as an integer value."""
         return self._core.read(actuator, int(parameter))
 
     def write(self, actuator: str, parameter: int, value: int) -> None:
+        """Write one integer eRob parameter."""
         self._core.write(actuator, int(parameter), int(value))

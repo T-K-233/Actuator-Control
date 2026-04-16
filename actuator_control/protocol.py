@@ -8,7 +8,12 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class ActuatorProtocol:
-    """Static protocol metadata for one actuator family."""
+    """Static protocol metadata for one actuator family.
+
+    Attributes:
+        name: Stable protocol name used in the Python API.
+        parameter_data_types: Mapping from parameter ID to ``"int"`` or ``"float"``.
+    """
 
     name: str
     parameter_data_types: dict[int, str]
@@ -59,7 +64,15 @@ ACTUATOR_PROTOCOLS = _ProtocolRegistry()
 
 
 def get_parameter_data_type(actuator_type: str, parameter: int) -> str | None:
-    """Return the declared Python-side type for a protocol parameter."""
+    """Return the declared Python-side type for a protocol parameter.
+
+    Args:
+        actuator_type: Protocol name such as ``"robstride"``.
+        parameter: Backend parameter ID.
+
+    Returns:
+        ``"int"`` or ``"float"`` when the parameter is known, otherwise ``None``.
+    """
 
     protocol = ACTUATOR_PROTOCOLS.get(actuator_type)
     if protocol is None:

@@ -6,12 +6,16 @@ from ..protocol import ActuatorProtocol
 
 
 class ErobCommandType:
+    """eRob command byte constants."""
+
     START_MOTION = 0x83
     STOP_MOTION = 0x84
     SAVE_PARAMS = 0xE8
 
 
 class ErobParameterType:
+    """eRob parameter ID constants used by `ERobBus.read` and `write`."""
+
     ACTUAL_POSITION = 0x0002
     ACTUAL_SPEED = 0x0005
     MOTOR_CURRENT = 0x0008
@@ -34,6 +38,8 @@ class ErobParameterType:
 
 
 class ErobMode:
+    """eRob control mode constants."""
+
     TORQUE = 1
     SPEED = 2
     POSITION = 3

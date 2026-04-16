@@ -6,6 +6,8 @@ from ..protocol import ActuatorProtocol
 
 
 class SitoCommunicationType:
+    """Sito CAN message type constants."""
+
     RESET = 0x00
     SELECT_MODE = 0x01
     SET_MIT_CURRENT_VELOCITY_POSITION = 0x09
@@ -17,6 +19,8 @@ class SitoCommunicationType:
 
 
 class SitoMode:
+    """Sito control mode constants."""
+
     POSITION = 0x08
     MIT = 0x09
 

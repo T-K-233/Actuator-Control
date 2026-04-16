@@ -27,16 +27,19 @@ struct PyCalibrationInput {
     homing_offset: Option<f64>,
 }
 
+/// Python binding for the eRob CAN backend.
 #[pyclass(unsendable, module = "actuator_control._rust", name = "_ErobBus")]
 pub struct PyErobBus {
     inner: ErobBus,
 }
 
+/// Python binding for the Robstride CAN backend.
 #[pyclass(unsendable, module = "actuator_control._rust", name = "_RobstrideBus")]
 pub struct PyRobstrideBus {
     inner: RobstrideBus,
 }
 
+/// Python binding for the Sito CAN backend.
 #[pyclass(unsendable, module = "actuator_control._rust", name = "_SitoBus")]
 pub struct PySitoBus {
     inner: SitoBus,
@@ -46,6 +49,13 @@ pub struct PySitoBus {
 impl PyErobBus {
     #[new]
     #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000))]
+    /// Create an eRob backend instance.
+    ///
+    /// Args:
+    ///     channel: CAN interface name.
+    ///     actuators: Actuator metadata keyed by logical name.
+    ///     calibration: Optional per-actuator calibration mapping.
+    ///     bitrate: CAN bitrate in bits per second.
     fn new(
         channel: String,
         actuators: HashMap<String, PyActuatorInput>,
@@ -58,23 +68,31 @@ impl PyErobBus {
         Ok(Self { inner })
     }
 
+    /// Open the CAN backend and start receiving frames.
     fn connect(&mut self) -> PyResult<()> {
         self.inner.connect().map_err(map_error)
     }
 
     #[pyo3(signature = (disable_torque=true))]
+    /// Disconnect the backend.
+    ///
+    /// Args:
+    ///     disable_torque: Whether to disable actuators before closing.
     fn disconnect(&mut self, disable_torque: bool) -> PyResult<()> {
         self.inner.disconnect(disable_torque).map_err(map_error)
     }
 
+    /// Enable one actuator by logical name.
     fn enable(&self, actuator: &str) -> PyResult<()> {
         self.inner.enable(actuator).map_err(map_error)
     }
 
+    /// Disable one actuator by logical name.
     fn disable(&self, actuator: &str) -> PyResult<()> {
         self.inner.disable(actuator).map_err(map_error)
     }
 
+    /// Read one eRob parameter as an integer.
     fn read(&self, actuator: &str, parameter: u16) -> PyResult<i64> {
         let value = self.inner.read(actuator, parameter).map_err(map_error)?;
         match value {
@@ -85,12 +103,14 @@ impl PyErobBus {
         }
     }
 
+    /// Write one integer eRob parameter.
     fn write(&self, actuator: &str, parameter: u16, value: i32) -> PyResult<()> {
         self.inner
             .write(actuator, parameter, value)
             .map_err(map_error)
     }
 
+    /// Update MIT-mode proportional and derivative gains.
     fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> PyResult<()> {
         self.inner
             .write_mit_kp_kd(actuator, kp, kd)
@@ -98,6 +118,13 @@ impl PyErobBus {
     }
 
     #[pyo3(signature = (actuator, position, velocity=0.0, torque=0.0))]
+    /// Send one MIT control command.
+    ///
+    /// Args:
+    ///     actuator: Logical actuator name.
+    ///     position: Target output position in radians.
+    ///     velocity: Target output velocity in radians per second.
+    ///     torque: Feedforward output torque in newton-meters.
     fn write_mit_control(
         &self,
         actuator: &str,
@@ -110,22 +137,27 @@ impl PyErobBus {
             .map_err(map_error)
     }
 
+    /// Trigger an asynchronous state refresh.
     fn request_state(&self, actuator: &str) -> PyResult<()> {
         self.inner.request_state(actuator).map_err(map_error)
     }
 
+    /// Return the last cached actuator state tuple.
     fn read_state(&self, actuator: &str) -> PyResult<Option<(f64, f64, f64, f64, Vec<String>)>> {
         state_to_tuple(self.inner.read_state(actuator))
     }
 
+    /// Return the number of transmitted CAN frames.
     fn read_tx_counter(&self) -> u64 {
         self.inner.tx_counter()
     }
 
+    /// Return the number of received CAN frames.
     fn read_rx_counter(&self) -> u64 {
         self.inner.rx_counter()
     }
 
+    /// Return the configured CAN bitrate.
     fn bitrate(&self) -> u32 {
         self.inner.bitrate()
     }
@@ -135,6 +167,13 @@ impl PyErobBus {
 impl PyRobstrideBus {
     #[new]
     #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000))]
+    /// Create a Robstride backend instance.
+    ///
+    /// Args:
+    ///     channel: CAN interface name.
+    ///     actuators: Actuator metadata keyed by actuator name.
+    ///     calibration: Optional per-actuator calibration mapping.
+    ///     bitrate: CAN bitrate in bits per second.
     fn new(
         channel: String,
         actuators: HashMap<String, PyActuatorInput>,
@@ -148,23 +187,31 @@ impl PyRobstrideBus {
         Ok(Self { inner })
     }
 
+    /// Open the CAN backend and start receiving frames.
     fn connect(&mut self) -> PyResult<()> {
         self.inner.connect().map_err(map_error)
     }
 
     #[pyo3(signature = (disable_torque=true))]
+    /// Disconnect the backend.
+    ///
+    /// Args:
+    ///     disable_torque: Whether to disable actuators before closing.
     fn disconnect(&mut self, disable_torque: bool) -> PyResult<()> {
         self.inner.disconnect(disable_torque).map_err(map_error)
     }
 
+    /// Enable one actuator by logical name.
     fn enable(&self, actuator: &str) -> PyResult<()> {
         self.inner.enable(actuator).map_err(map_error)
     }
 
+    /// Disable one actuator by logical name.
     fn disable(&self, actuator: &str) -> PyResult<()> {
         self.inner.disable(actuator).map_err(map_error)
     }
 
+    /// Read one Robstride parameter.
     fn read(&self, py: Python<'_>, actuator: &str, parameter: u16) -> PyResult<PyObject> {
         let parameter = robstride_parameter(parameter)?;
         let value = self.inner.read(actuator, parameter).map_err(map_error)?;
@@ -174,6 +221,7 @@ impl PyRobstrideBus {
         }
     }
 
+    /// Write one integer Robstride parameter.
     fn write_integer(&self, actuator: &str, parameter: u16, value: i64) -> PyResult<()> {
         let parameter = robstride_parameter(parameter)?;
         self.inner
@@ -181,6 +229,7 @@ impl PyRobstrideBus {
             .map_err(map_error)
     }
 
+    /// Write one floating-point Robstride parameter.
     fn write_float(&self, actuator: &str, parameter: u16, value: f32) -> PyResult<()> {
         let parameter = robstride_parameter(parameter)?;
         self.inner
@@ -188,6 +237,7 @@ impl PyRobstrideBus {
             .map_err(map_error)
     }
 
+    /// Update MIT-mode proportional and derivative gains.
     fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> PyResult<()> {
         self.inner
             .write_mit_kp_kd(actuator, kp, kd)
@@ -195,6 +245,13 @@ impl PyRobstrideBus {
     }
 
     #[pyo3(signature = (actuator, position, velocity=0.0, torque=0.0))]
+    /// Send one MIT control command.
+    ///
+    /// Args:
+    ///     actuator: Logical actuator name.
+    ///     position: Target output position in radians.
+    ///     velocity: Target output velocity in radians per second.
+    ///     torque: Feedforward output torque in newton-meters.
     fn write_mit_control(
         &self,
         actuator: &str,
@@ -207,23 +264,31 @@ impl PyRobstrideBus {
             .map_err(map_error)
     }
 
+    /// Trigger an asynchronous state refresh.
     fn request_state(&self, actuator: &str) -> PyResult<()> {
         self.inner.request_state(actuator).map_err(map_error)
     }
 
+    /// Return the last cached actuator state tuple.
     fn read_state(&self, actuator: &str) -> PyResult<Option<(f64, f64, f64, f64, Vec<String>)>> {
         state_to_tuple(self.inner.read_state(actuator))
     }
 
+    /// Return the number of transmitted CAN frames.
     fn read_tx_counter(&self) -> u64 {
         self.inner.tx_counter()
     }
 
+    /// Return the number of received CAN frames.
     fn read_rx_counter(&self) -> u64 {
         self.inner.rx_counter()
     }
 
     #[pyo3(signature = (actuator=None))]
+    /// Read cached fault status.
+    ///
+    /// Args:
+    ///     actuator: Optional logical actuator name. If omitted, returns all cached faults.
     fn read_fault_status(&self, py: Python<'_>, actuator: Option<&str>) -> PyResult<PyObject> {
         let mut faults = self.inner.read_fault_status(actuator).map_err(map_error)?;
         match actuator {
@@ -232,12 +297,19 @@ impl PyRobstrideBus {
         }
     }
 
+    /// Clear cached and device-side fault state for one actuator.
     fn clear_fault(&self, actuator: &str) -> PyResult<()> {
         self.inner.clear_fault(actuator).map_err(map_error)
     }
 
     #[classmethod]
     #[pyo3(signature = (_channel, _device_id, _timeout=0.1))]
+    /// Probe one Robstride device ID.
+    ///
+    /// Args:
+    ///     _channel: CAN interface name.
+    ///     _device_id: Device ID to probe.
+    ///     _timeout: Receive timeout in seconds.
     fn ping_by_id(
         _cls: &Bound<'_, PyType>,
         _channel: &str,
@@ -248,6 +320,7 @@ impl PyRobstrideBus {
         RobstrideBus::ping_by_id(_channel, _device_id, timeout).map_err(map_error)
     }
 
+    /// Return the configured CAN bitrate.
     fn bitrate(&self) -> u32 {
         self.inner.bitrate()
     }
@@ -257,6 +330,14 @@ impl PyRobstrideBus {
 impl PySitoBus {
     #[new]
     #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000, control_frequency=50.0))]
+    /// Create a Sito backend instance.
+    ///
+    /// Args:
+    ///     channel: CAN interface name.
+    ///     actuators: Actuator metadata keyed by actuator name.
+    ///     calibration: Optional per-actuator calibration mapping.
+    ///     bitrate: CAN bitrate in bits per second.
+    ///     control_frequency: Requested control loop frequency in hertz.
     fn new(
         channel: String,
         actuators: HashMap<String, PyActuatorInput>,
@@ -273,23 +354,31 @@ impl PySitoBus {
         Ok(Self { inner })
     }
 
+    /// Open the CAN backend and start receiving frames.
     fn connect(&mut self) -> PyResult<()> {
         self.inner.connect().map_err(map_error)
     }
 
     #[pyo3(signature = (disable_torque=true))]
+    /// Disconnect the backend.
+    ///
+    /// Args:
+    ///     disable_torque: Whether to disable actuators before closing.
     fn disconnect(&mut self, disable_torque: bool) -> PyResult<()> {
         self.inner.disconnect(disable_torque).map_err(map_error)
     }
 
+    /// Enable one actuator by logical name.
     fn enable(&self, actuator: &str) -> PyResult<()> {
         self.inner.enable(actuator).map_err(map_error)
     }
 
+    /// Disable one actuator by logical name.
     fn disable(&self, actuator: &str) -> PyResult<()> {
         self.inner.disable(actuator).map_err(map_error)
     }
 
+    /// Update MIT-mode proportional and derivative gains.
     fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> PyResult<()> {
         self.inner
             .write_mit_kp_kd(actuator, kp, kd)
@@ -297,6 +386,13 @@ impl PySitoBus {
     }
 
     #[pyo3(signature = (actuator, position, velocity=0.0, torque=0.0))]
+    /// Send one MIT control command.
+    ///
+    /// Args:
+    ///     actuator: Logical actuator name.
+    ///     position: Target output position in radians.
+    ///     velocity: Target output velocity in radians per second.
+    ///     torque: Feedforward output torque in newton-meters.
     fn write_mit_control(
         &self,
         actuator: &str,
@@ -309,22 +405,27 @@ impl PySitoBus {
             .map_err(map_error)
     }
 
+    /// Trigger an asynchronous state refresh.
     fn request_state(&self, actuator: &str) -> PyResult<()> {
         self.inner.request_state(actuator).map_err(map_error)
     }
 
+    /// Return the last cached actuator state tuple.
     fn read_state(&self, actuator: &str) -> PyResult<Option<(f64, f64, f64, f64, Vec<String>)>> {
         state_to_tuple(self.inner.read_state(actuator))
     }
 
+    /// Return the number of transmitted CAN frames.
     fn read_tx_counter(&self) -> u64 {
         self.inner.tx_counter()
     }
 
+    /// Return the number of received CAN frames.
     fn read_rx_counter(&self) -> u64 {
         self.inner.rx_counter()
     }
 
+    /// Return the configured CAN bitrate.
     fn bitrate(&self) -> u32 {
         self.inner.bitrate()
     }

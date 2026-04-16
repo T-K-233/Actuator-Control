@@ -6,6 +6,8 @@ from ..protocol import ActuatorProtocol
 
 
 class RobstrideCommunicationType:
+    """Robstride extended CAN communication type constants."""
+
     GET_DEVICE_ID = 0
     OPERATION_CONTROL = 1
     OPERATION_STATUS = 2
@@ -23,6 +25,8 @@ class RobstrideCommunicationType:
 
 
 class RobstrideParameterType:
+    """Robstride parameter ID constants used by `RobstrideBus.read` and `write`."""
+
     MECHANICAL_OFFSET = 0x2005
     MEASURED_POSITION = 0x3016
     MEASURED_VELOCITY = 0x3017

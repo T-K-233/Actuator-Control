@@ -10,6 +10,8 @@ from .protocol import SITO_PROTOCOL
 
 
 class SitoBus(BusBase):
+    """High-level Python wrapper for the Sito CAN backend."""
+
     protocol = SITO_PROTOCOL
 
     def __init__(
@@ -20,6 +22,15 @@ class SitoBus(BusBase):
         bitrate: int = 1_000_000,
         control_frequency: float = 50.0,
     ) -> None:
+        """Create a Sito bus wrapper.
+
+        Args:
+            channel: CAN interface name, e.g. `can0`.
+            actuators: Actuators keyed by logical actuator name.
+            calibration: Optional per-actuator calibration overrides.
+            bitrate: CAN bitrate in bits per second.
+            control_frequency: Requested control loop frequency in hertz.
+        """
         super().__init__(channel, actuators, calibration, bitrate)
         self._core = _SitoBus(
             channel=channel,
