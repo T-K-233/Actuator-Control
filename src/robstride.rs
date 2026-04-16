@@ -589,7 +589,10 @@ fn handle_read_parameter(shared: &SharedState, parsed: robstride::ParsedFrame) {
         return;
     };
 
-    if parsed.device_id != inflight.actuator_id || parsed.data.len() < 8 {
+    // Robstride read replies report the source actuator ID in extra_data, while device_id remains
+    // the destination host ID from the original request.
+    let response_actuator_id = (parsed.extra_data & 0x00FF) as u8;
+    if response_actuator_id != inflight.actuator_id || parsed.data.len() < 8 {
         return;
     }
 
@@ -742,8 +745,8 @@ mod tests {
             &shared,
             robstride::ParsedFrame {
                 communication_type: CommunicationType::ReadParameter,
-                extra_data: 0,
-                device_id: 0x02,
+                extra_data: 0x02,
+                device_id: 0xFF,
                 data: [
                     0x16,
                     0x30,
@@ -782,8 +785,8 @@ mod tests {
             &shared,
             robstride::ParsedFrame {
                 communication_type: CommunicationType::ReadParameter,
-                extra_data: 0,
-                device_id: 0x01,
+                extra_data: 0x01,
+                device_id: 0xFF,
                 data: [
                     0x17,
                     0x30,
@@ -822,8 +825,8 @@ mod tests {
             &shared,
             robstride::ParsedFrame {
                 communication_type: CommunicationType::ReadParameter,
-                extra_data: 0,
-                device_id: 0x01,
+                extra_data: 0x01,
+                device_id: 0xFF,
                 data: [
                     0x16,
                     0x30,
