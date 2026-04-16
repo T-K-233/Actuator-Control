@@ -18,13 +18,15 @@ class RobstrideBus(BusBase):
         actuators: dict[str, Actuator],
         calibration: dict[str, dict[str, Any]] | None = None,
         bitrate: int = 1_000_000,
+        rx_thread_priority: int | None = None,
     ) -> None:
-        super().__init__(channel, actuators, calibration, bitrate)
+        super().__init__(channel, actuators, calibration, bitrate, rx_thread_priority)
         self._core = _RobstrideBus(
             channel=channel,
             actuators=_serialize_actuators(actuators),
             calibration=_serialize_calibration(calibration),
             bitrate=bitrate,
+            rx_thread_priority=rx_thread_priority,
         )
 
     def read(self, actuator: str, parameter: int) -> int | float:

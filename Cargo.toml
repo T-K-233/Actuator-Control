@@ -11,5 +11,6 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+libc = "0.2"
 pyo3 = { version = "0.22", features = ["abi3-py310", "extension-module"] }
 socketcan = "3.5"

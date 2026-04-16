@@ -19,12 +19,14 @@ class SitoBus(BusBase):
         calibration: dict[str, dict[str, Any]] | None = None,
         bitrate: int = 1_000_000,
         control_frequency: float = 50.0,
+        rx_thread_priority: int | None = None,
     ) -> None:
-        super().__init__(channel, actuators, calibration, bitrate)
+        super().__init__(channel, actuators, calibration, bitrate, rx_thread_priority)
         self._core = _SitoBus(
             channel=channel,
             actuators=_serialize_actuators(actuators),
             calibration=_serialize_calibration(calibration),
             bitrate=bitrate,
             control_frequency=control_frequency,
+            rx_thread_priority=rx_thread_priority,
         )

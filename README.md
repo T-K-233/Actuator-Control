@@ -55,6 +55,21 @@ finally:
     bus.disconnect()
 ```
 
+To request Linux real-time scheduling for the dedicated receive thread, pass
+`rx_thread_priority` when constructing a bus:
+
+```python
+bus = ERobBus(
+    channel="can0",
+    actuators=actuators,
+    rx_thread_priority=40,
+)
+```
+
+This applies `SCHED_FIFO` to the receive thread during `connect()`. The call
+fails if the requested priority is outside the kernel-supported range or if the
+process does not have permission to set that scheduler.
+
 More examples can be found in `./examples/` folder.
 
 ## Calibration

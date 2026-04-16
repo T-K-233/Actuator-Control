@@ -9,7 +9,8 @@ use socketcan::{CanSocket, Socket};
 
 use crate::core::{
     Actuator, ActuatorError, ActuatorState, CachedActuatorState, Calibration, ParameterValue,
-    Result, build_frame, is_timeout_error, open_socket_pair, validate_unique_ids,
+    Result, apply_thread_priority, build_frame, is_timeout_error, open_socket_pair,
+    validate_thread_priority, validate_unique_ids,
 };
 use crate::protocol::erob;
 
@@ -35,6 +36,7 @@ pub struct ErobBus {
     actuators: HashMap<String, Actuator>,
     calibrations: HashMap<String, Calibration>,
     ids: HashMap<u8, String>,
+    rx_thread_priority: Option<i32>,
     shared: Arc<SharedState>,
     tx_socket: Option<CanSocket>,
     rx_thread: Option<JoinHandle<()>>,
@@ -55,6 +57,7 @@ impl ErobBus {
             actuators,
             calibrations: HashMap::new(),
             ids,
+            rx_thread_priority: None,
             shared: Arc::new(SharedState {
                 running: AtomicBool::new(false),
                 frames_sent: AtomicU64::new(0),
@@ -75,6 +78,12 @@ impl ErobBus {
     pub fn with_calibrations(mut self, calibrations: HashMap<String, Calibration>) -> Self {
         self.calibrations = calibrations;
         self
+    }
+
+    pub fn with_rx_thread_priority(mut self, priority: i32) -> Result<Self> {
+        validate_thread_priority(priority)?;
+        self.rx_thread_priority = Some(priority);
+        Ok(self)
     }
 
     pub fn set_calibration(
@@ -99,11 +108,20 @@ impl ErobBus {
         let shared = Arc::clone(&self.shared);
         let calibrations = self.calibrations.clone();
         let ids = self.ids.clone();
+        let rx_thread_priority = self.rx_thread_priority;
 
         self.shared.running.store(true, Ordering::Relaxed);
-        self.rx_thread = Some(thread::spawn(move || {
+        let handle = thread::spawn(move || {
             receiver_loop(rx_socket, shared, ids, calibrations);
-        }));
+        });
+        if let Some(priority) = rx_thread_priority {
+            if let Err(error) = apply_thread_priority(&handle, priority) {
+                self.shared.running.store(false, Ordering::Relaxed);
+                let _ = handle.join();
+                return Err(error);
+            }
+        }
+        self.rx_thread = Some(handle);
         self.tx_socket = Some(tx_socket);
 
         Ok(())

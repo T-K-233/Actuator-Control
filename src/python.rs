@@ -45,15 +45,19 @@ pub struct PySitoBus {
 #[pymethods]
 impl PyErobBus {
     #[new]
-    #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000))]
+    #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000, rx_thread_priority=None))]
     fn new(
         channel: String,
         actuators: HashMap<String, PyActuatorInput>,
         calibration: Option<HashMap<String, PyCalibrationInput>>,
         bitrate: u32,
+        rx_thread_priority: Option<i32>,
     ) -> PyResult<Self> {
         let mut inner = ErobBus::new(channel, convert_actuators(actuators)).map_err(map_error)?;
         inner = inner.with_bitrate(bitrate);
+        if let Some(priority) = rx_thread_priority {
+            inner = inner.with_rx_thread_priority(priority).map_err(map_error)?;
+        }
         inner = inner.with_calibrations(convert_calibrations(calibration)?);
         Ok(Self { inner })
     }
@@ -134,16 +138,20 @@ impl PyErobBus {
 #[pymethods]
 impl PyRobstrideBus {
     #[new]
-    #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000))]
+    #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000, rx_thread_priority=None))]
     fn new(
         channel: String,
         actuators: HashMap<String, PyActuatorInput>,
         calibration: Option<HashMap<String, PyCalibrationInput>>,
         bitrate: u32,
+        rx_thread_priority: Option<i32>,
     ) -> PyResult<Self> {
         let mut inner =
             RobstrideBus::new(channel, convert_actuators(actuators)).map_err(map_error)?;
         inner = inner.with_bitrate(bitrate);
+        if let Some(priority) = rx_thread_priority {
+            inner = inner.with_rx_thread_priority(priority).map_err(map_error)?;
+        }
         inner = inner.with_calibrations(convert_calibrations(calibration)?);
         Ok(Self { inner })
     }
@@ -256,19 +264,23 @@ impl PyRobstrideBus {
 #[pymethods]
 impl PySitoBus {
     #[new]
-    #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000, control_frequency=50.0))]
+    #[pyo3(signature = (channel, actuators, calibration=None, bitrate=1_000_000, control_frequency=50.0, rx_thread_priority=None))]
     fn new(
         channel: String,
         actuators: HashMap<String, PyActuatorInput>,
         calibration: Option<HashMap<String, PyCalibrationInput>>,
         bitrate: u32,
         control_frequency: f64,
+        rx_thread_priority: Option<i32>,
     ) -> PyResult<Self> {
         let mut inner = SitoBus::new(channel, convert_actuators(actuators)).map_err(map_error)?;
         inner = inner.with_bitrate(bitrate);
         inner = inner
             .with_control_frequency(control_frequency)
             .map_err(map_error)?;
+        if let Some(priority) = rx_thread_priority {
+            inner = inner.with_rx_thread_priority(priority).map_err(map_error)?;
+        }
         inner = inner.with_calibrations(convert_calibrations(calibration)?);
         Ok(Self { inner })
     }

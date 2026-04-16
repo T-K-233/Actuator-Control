@@ -7,8 +7,9 @@ use std::time::Duration;
 use socketcan::{CanSocket, Socket};
 
 use crate::core::{
-    Actuator, ActuatorError, ActuatorState, CachedActuatorState, Calibration, Result, build_frame,
-    is_timeout_error, open_socket_pair, validate_unique_ids,
+    Actuator, ActuatorError, ActuatorState, CachedActuatorState, Calibration, Result,
+    apply_thread_priority, build_frame, is_timeout_error, open_socket_pair,
+    validate_thread_priority, validate_unique_ids,
 };
 use crate::protocol::sito::{self, SitoModelConfig};
 
@@ -30,6 +31,7 @@ pub struct SitoBus {
     actuators: HashMap<String, Actuator>,
     calibrations: HashMap<String, Calibration>,
     ids: HashMap<u8, String>,
+    rx_thread_priority: Option<i32>,
     shared: Arc<SharedState>,
     tx_socket: Option<CanSocket>,
     rx_thread: Option<JoinHandle<()>>,
@@ -53,6 +55,7 @@ impl SitoBus {
             actuators,
             calibrations: HashMap::new(),
             ids,
+            rx_thread_priority: None,
             shared: Arc::new(SharedState {
                 running: AtomicBool::new(false),
                 frames_sent: AtomicU64::new(0),
@@ -93,6 +96,12 @@ impl SitoBus {
         self
     }
 
+    pub fn with_rx_thread_priority(mut self, priority: i32) -> Result<Self> {
+        validate_thread_priority(priority)?;
+        self.rx_thread_priority = Some(priority);
+        Ok(self)
+    }
+
     pub fn set_calibration(
         &mut self,
         actuator: impl Into<String>,
@@ -120,11 +129,20 @@ impl SitoBus {
             .iter()
             .map(|(name, actuator)| (name.clone(), actuator.model.clone()))
             .collect::<HashMap<_, _>>();
+        let rx_thread_priority = self.rx_thread_priority;
 
         self.shared.running.store(true, Ordering::Relaxed);
-        self.rx_thread = Some(thread::spawn(move || {
+        let handle = thread::spawn(move || {
             receiver_loop(rx_socket, shared, ids, models, calibrations);
-        }));
+        });
+        if let Some(priority) = rx_thread_priority {
+            if let Err(error) = apply_thread_priority(&handle, priority) {
+                self.shared.running.store(false, Ordering::Relaxed);
+                let _ = handle.join();
+                return Err(error);
+            }
+        }
+        self.rx_thread = Some(handle);
         self.tx_socket = Some(tx_socket);
 
         Ok(())
@@ -382,5 +400,22 @@ mod tests {
             .with_control_frequency(50.0)
             .unwrap();
         assert_eq!(bus.feedback_1_interval_ms, 20);
+    }
+
+    #[test]
+    fn rx_thread_priority_rejects_invalid_values() {
+        let actuators = HashMap::from([("joint".to_string(), Actuator::new(1, "TA40-50"))]);
+        let result = SitoBus::new("can0", actuators)
+            .unwrap()
+            .with_rx_thread_priority(0);
+
+        match result {
+            Ok(_) => panic!("priority 0 should be rejected"),
+            Err(error) => assert!(
+                error
+                    .to_string()
+                    .contains("rx thread priority must be between")
+            ),
+        }
     }
 }

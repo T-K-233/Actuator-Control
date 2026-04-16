@@ -34,11 +34,13 @@ class BusBase:
         actuators: dict[str, Actuator],
         calibration: dict[str, dict[str, Any]] | None,
         bitrate: int,
+        rx_thread_priority: int | None,
     ) -> None:
         self.channel = channel
         self.actuators = dict(actuators)
         self.calibration = calibration.copy() if calibration else {}
         self.bitrate = bitrate
+        self.rx_thread_priority = rx_thread_priority
         self._is_connected = False
 
     def __len__(self) -> int:
