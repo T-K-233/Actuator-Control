@@ -1,12 +1,14 @@
 use std::io;
 use std::time::Duration;
 
-use socketcan::{CanFrame, CanSocket, Frame, Socket};
+use socketcan::{CanFrame, CanSocket, Frame, Socket, SocketOptions};
 
 use crate::core::{ActuatorError, Result};
 
 pub fn open_socket_pair(channel: &str, read_timeout: Duration) -> Result<(CanSocket, CanSocket)> {
     let tx = CanSocket::open(channel)?;
+    tx.set_loopback(false)?;
+
     let rx = CanSocket::open(channel)?;
     rx.set_read_timeout(read_timeout)?;
     Ok((tx, rx))
