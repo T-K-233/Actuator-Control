@@ -105,7 +105,7 @@ class BusBase:
             return None
         return state.faults
 
-    def get_mit_states(self, actuator: str) -> tuple[float, float, float] | None:
+    def get_mit_state(self, actuator: str) -> tuple[float, float, float] | None:
         state = self.get_state(actuator)
         if state is None:
             return None

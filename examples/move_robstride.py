@@ -37,15 +37,15 @@ try:
         bus.write_mit_control(actuator="actuator_1", position=target_position_1, velocity=0, torque=0)
         bus.write_mit_control(actuator="actuator_2", position=target_position_2, velocity=0, torque=0)
 
-        state_0 = bus.get_state(actuator="actuator_1")
-        state_1 = bus.get_state(actuator="actuator_2")
+        state_0 = bus.get_mit_state(actuator="actuator_1")
+        state_1 = bus.get_mit_state(actuator="actuator_2")
         if state_0 is None or state_1 is None:
             rate.sleep()
             continue
 
-        position_0, velocity_0 = state_0.position, state_0.velocity
-        position_1, velocity_1 = state_1.position, state_1.velocity
-        print(f"position: {position_0:.3f}, {position_1:.3f}, velocity: {velocity_0:.3f}, {velocity_1:.3f}")
+        position_0, velocity_0, torque_0 = state_0
+        position_1, velocity_1, torque_1 = state_1
+        print(f"position: {position_0:.3f}, {position_1:.3f}, velocity: {velocity_0:.3f}, {velocity_1:.3f}, torque: {torque_0:.3f}, {torque_1:.3f}")
         rate.sleep()
 
 except KeyboardInterrupt:
