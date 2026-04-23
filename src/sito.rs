@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -31,6 +31,7 @@ pub struct SitoBus {
     calibrations: HashMap<String, Calibration>,
     ids: HashMap<u8, String>,
     shared: Arc<SharedState>,
+    gains: Mutex<HashMap<String, (f64, f64)>>,
     tx_socket: Option<CanSocket>,
     rx_thread: Option<JoinHandle<()>>,
 }
@@ -59,6 +60,7 @@ impl SitoBus {
                 frames_received: AtomicU64::new(0),
                 states: RwLock::new(states),
             }),
+            gains: Mutex::new(HashMap::new()),
             tx_socket: None,
             rx_thread: None,
         })
@@ -188,18 +190,35 @@ impl SitoBus {
         )
     }
 
-    pub fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> Result<()> {
-        let actuator_config = self.require_actuator(actuator)?;
-        let kp = (kp / 500.0) as f32;
-        let kd = (kd / 0.5) as f32;
+    fn update_mit_gains_if_needed(
+        &self,
+        actuator: &str,
+        actuator_id: u8,
+        kp: f64,
+        kd: f64,
+    ) -> Result<()> {
+        let changed = self
+            .gains
+            .lock()
+            .expect("gains poisoned")
+            .get(actuator)
+            .copied()
+            != Some((kp, kd));
+        if !changed {
+            return Ok(());
+        }
+
+        let kp_raw = (kp / 500.0) as f32;
+        let kd_raw = (kd / 0.5) as f32;
         let mut payload = Vec::with_capacity(8);
-        payload.extend_from_slice(&kp.to_be_bytes());
-        payload.extend_from_slice(&kd.to_be_bytes());
-        self.send_frame(
-            actuator_config.id,
-            sito::communication::SET_MIT_KP_KD,
-            &payload,
-        )
+        payload.extend_from_slice(&kp_raw.to_be_bytes());
+        payload.extend_from_slice(&kd_raw.to_be_bytes());
+        self.send_frame(actuator_id, sito::communication::SET_MIT_KP_KD, &payload)?;
+        self.gains
+            .lock()
+            .expect("gains poisoned")
+            .insert(actuator.to_string(), (kp, kd));
+        Ok(())
     }
 
     pub fn write_mit_control(
@@ -207,9 +226,12 @@ impl SitoBus {
         actuator: &str,
         position: f64,
         velocity: f64,
+        kp: f64,
+        kd: f64,
         torque: f64,
     ) -> Result<()> {
         let actuator_config = self.require_actuator(actuator)?;
+        self.update_mit_gains_if_needed(actuator, actuator_config.id, kp, kd)?;
         let calibration = self.calibration_for(actuator)?;
         let config = self.model_config(actuator)?;
         let (position, velocity, torque) = calibration.apply_command(position, velocity, torque);

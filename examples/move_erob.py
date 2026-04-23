@@ -26,13 +26,17 @@ bus.connect()
 for name in actuators:
     bus.enable(name)
 
-
-bus.write_mit_kp_kd("left_wrist_yaw", kp=10.0, kd=1.0)
-
 try:
     while True:
         target_position = np.sin(2 * np.pi * 1 * time.time()) * 0.2
-        bus.write_mit_control(actuator="left_wrist_yaw", position=target_position)
+        bus.write_mit_control(
+            actuator="left_wrist_yaw",
+            position=target_position,
+            velocity=0.0,
+            kp=10.0,
+            kd=1.0,
+            torque=0.0,
+        )
 
         state = bus.get_state(actuator="left_wrist_yaw")
         if state is None:

@@ -36,6 +36,7 @@ pub struct ErobBus {
     calibrations: HashMap<String, Calibration>,
     ids: HashMap<u8, String>,
     shared: Arc<SharedState>,
+    gains: Mutex<HashMap<String, (f64, f64)>>,
     tx_socket: Option<CanSocket>,
     rx_thread: Option<JoinHandle<()>>,
 }
@@ -62,6 +63,7 @@ impl ErobBus {
                 pending: Mutex::new(HashMap::new()),
                 states: RwLock::new(states),
             }),
+            gains: Mutex::new(HashMap::new()),
             tx_socket: None,
             rx_thread: None,
         })
@@ -191,7 +193,18 @@ impl ErobBus {
         Ok(())
     }
 
-    pub fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> Result<()> {
+    fn update_mit_gains_if_needed(&self, actuator: &str, kp: f64, kd: f64) -> Result<()> {
+        let changed = self
+            .gains
+            .lock()
+            .expect("gains poisoned")
+            .get(actuator)
+            .copied()
+            != Some((kp, kd));
+        if !changed {
+            return Ok(());
+        }
+
         if matches!(
             self.read(actuator, erob::parameter::PID_ADJUSTMENT)?,
             ParameterValue::Integer(1)
@@ -203,6 +216,10 @@ impl ErobBus {
         self.write_subindex(actuator, erob::parameter::POSITION_LOOP_GAIN, 0x01, kp_raw)?;
         self.write_subindex(actuator, erob::parameter::SPEED_LOOP_GAIN, 0x01, kd_raw)?;
         self.write_subindex(actuator, erob::parameter::SPEED_LOOP_INTEGRAL, 0x01, 0)?;
+        self.gains
+            .lock()
+            .expect("gains poisoned")
+            .insert(actuator.to_string(), (kp, kd));
         Ok(())
     }
 
@@ -211,9 +228,12 @@ impl ErobBus {
         actuator: &str,
         position: f64,
         velocity: f64,
+        kp: f64,
+        kd: f64,
         torque: f64,
     ) -> Result<()> {
         let actuator_config = self.require_actuator(actuator)?;
+        self.update_mit_gains_if_needed(actuator, kp, kd)?;
         let calibration = self.calibration_for(actuator)?;
         let (position, _, _) = calibration.apply_command(position, velocity, torque);
         let target_counts = round_to_i32(

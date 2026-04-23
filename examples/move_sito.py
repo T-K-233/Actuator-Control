@@ -24,9 +24,6 @@ rate = RateLimiter(frequency=control_frequency)
 bus = SitoBus(channel=channel, actuators=actuators, control_frequency=control_frequency)
 bus.connect()
 
-bus.write_mit_kp_kd("left_wrist_roll", 20.0, 1.0)
-bus.write_mit_kp_kd("left_wrist_pitch", 20.0, 1.0)
-
 for name in actuators:
     bus.enable(name)
 
@@ -35,8 +32,22 @@ try:
     while True:
         target_position_1 = np.sin(2 * np.pi * 1 * time.time()) * 0.2
         target_position_2 = np.cos(2 * np.pi * 1 * time.time()) * 0.2
-        bus.write_mit_control(actuator="left_wrist_roll", position=target_position_1, velocity=0, torque=0)
-        bus.write_mit_control(actuator="left_wrist_pitch", position=target_position_2, velocity=0, torque=0)
+        bus.write_mit_control(
+            actuator="left_wrist_roll",
+            position=target_position_1,
+            velocity=0.0,
+            kp=20.0,
+            kd=1.0,
+            torque=0.0,
+        )
+        bus.write_mit_control(
+            actuator="left_wrist_pitch",
+            position=target_position_2,
+            velocity=0.0,
+            kp=20.0,
+            kd=1.0,
+            torque=0.0,
+        )
 
         state_0 = bus.get_state(actuator="left_wrist_roll")
         state_1 = bus.get_state(actuator="left_wrist_pitch")

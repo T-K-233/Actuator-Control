@@ -99,22 +99,14 @@ class BusBase:
         """Disable the specified actuator."""
         self._core.disable(actuator)
 
-    def write_mit_kp_kd(self, actuator: str, kp: float, kd: float) -> None:
-        """Update MIT-mode proportional and derivative gains.
-
-        Args:
-            actuator: Actuator name.
-            kp: Proportional gain in backend-specific MIT units.
-            kd: Derivative gain in backend-specific MIT units.
-        """
-        self._core.write_mit_kp_kd(actuator, kp, kd)
-
     def write_mit_control(
         self,
         actuator: str,
         position: float,
-        velocity: float = 0.0,
-        torque: float = 0.0,
+        velocity: float,
+        kp: float,
+        kd: float,
+        torque: float,
     ) -> None:
         """Send one MIT control command.
 
@@ -122,9 +114,11 @@ class BusBase:
             actuator: Actuator name.
             position: Target output position in radians.
             velocity: Target output velocity in radians per second.
+            kp: Proportional gain in MIT units.
+            kd: Derivative gain in MIT units.
             torque: Feedforward output torque in newton-meters.
         """
-        self._core.write_mit_control(actuator, position, velocity, torque)
+        self._core.write_mit_control(actuator, position, velocity, kp, kd, torque)
 
     @property
     def tx_counter(self) -> int:

@@ -110,30 +110,27 @@ impl PyErobBus {
             .map_err(map_error)
     }
 
-    /// Update MIT-mode proportional and derivative gains.
-    fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> PyResult<()> {
-        self.inner
-            .write_mit_kp_kd(actuator, kp, kd)
-            .map_err(map_error)
-    }
-
-    #[pyo3(signature = (actuator, position, velocity=0.0, torque=0.0))]
+    #[pyo3(signature = (actuator, position, velocity, kp, kd, torque))]
     /// Send one MIT control command.
     ///
     /// Args:
     ///     actuator: Logical actuator name.
     ///     position: Target output position in radians.
     ///     velocity: Target output velocity in radians per second.
+    ///     kp: Proportional gain in MIT units.
+    ///     kd: Derivative gain in MIT units.
     ///     torque: Feedforward output torque in newton-meters.
     fn write_mit_control(
         &self,
         actuator: &str,
         position: f64,
         velocity: f64,
+        kp: f64,
+        kd: f64,
         torque: f64,
     ) -> PyResult<()> {
         self.inner
-            .write_mit_control(actuator, position, velocity, torque)
+            .write_mit_control(actuator, position, velocity, kp, kd, torque)
             .map_err(map_error)
     }
 
@@ -232,30 +229,27 @@ impl PyRobstrideBus {
             .map_err(map_error)
     }
 
-    /// Update MIT-mode proportional and derivative gains.
-    fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> PyResult<()> {
-        self.inner
-            .write_mit_kp_kd(actuator, kp, kd)
-            .map_err(map_error)
-    }
-
-    #[pyo3(signature = (actuator, position, velocity=0.0, torque=0.0))]
+    #[pyo3(signature = (actuator, position, velocity, kp, kd, torque))]
     /// Send one MIT control command.
     ///
     /// Args:
     ///     actuator: Logical actuator name.
     ///     position: Target output position in radians.
     ///     velocity: Target output velocity in radians per second.
+    ///     kp: Proportional gain in MIT units.
+    ///     kd: Derivative gain in MIT units.
     ///     torque: Feedforward output torque in newton-meters.
     fn write_mit_control(
         &self,
         actuator: &str,
         position: f64,
         velocity: f64,
+        kp: f64,
+        kd: f64,
         torque: f64,
     ) -> PyResult<()> {
         self.inner
-            .write_mit_control(actuator, position, velocity, torque)
+            .write_mit_control(actuator, position, velocity, kp, kd, torque)
             .map_err(map_error)
     }
 
@@ -368,30 +362,27 @@ impl PySitoBus {
         self.inner.disable(actuator).map_err(map_error)
     }
 
-    /// Update MIT-mode proportional and derivative gains.
-    fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> PyResult<()> {
-        self.inner
-            .write_mit_kp_kd(actuator, kp, kd)
-            .map_err(map_error)
-    }
-
-    #[pyo3(signature = (actuator, position, velocity=0.0, torque=0.0))]
+    #[pyo3(signature = (actuator, position, velocity, kp, kd, torque))]
     /// Send one MIT control command.
     ///
     /// Args:
     ///     actuator: Logical actuator name.
     ///     position: Target output position in radians.
     ///     velocity: Target output velocity in radians per second.
+    ///     kp: Proportional gain in MIT units.
+    ///     kd: Derivative gain in MIT units.
     ///     torque: Feedforward output torque in newton-meters.
     fn write_mit_control(
         &self,
         actuator: &str,
         position: f64,
         velocity: f64,
+        kp: f64,
+        kd: f64,
         torque: f64,
     ) -> PyResult<()> {
         self.inner
-            .write_mit_control(actuator, position, velocity, torque)
+            .write_mit_control(actuator, position, velocity, kp, kd, torque)
             .map_err(map_error)
     }
 

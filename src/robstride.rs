@@ -39,7 +39,6 @@ pub struct RobstrideBus {
     actuators: HashMap<String, Actuator>,
     calibrations: HashMap<String, Calibration>,
     shared: Arc<SharedState>,
-    gains: Mutex<HashMap<String, (f64, f64)>>,
     tx_socket: Option<CanSocket>,
     rx_thread: Option<JoinHandle<()>>,
 }
@@ -67,7 +66,6 @@ impl RobstrideBus {
                 pending_reads: Mutex::new(None),
                 pending_status: Mutex::new(HashMap::new()),
             }),
-            gains: Mutex::new(HashMap::new()),
             tx_socket: None,
             rx_thread: None,
         })
@@ -278,20 +276,13 @@ impl RobstrideBus {
         Ok(())
     }
 
-    pub fn write_mit_kp_kd(&self, actuator: &str, kp: f64, kd: f64) -> Result<()> {
-        self.require_actuator(actuator)?;
-        self.gains
-            .lock()
-            .expect("gains poisoned")
-            .insert(actuator.to_string(), (kp, kd));
-        Ok(())
-    }
-
     pub fn write_mit_control(
         &self,
         actuator: &str,
         position: f64,
         velocity: f64,
+        kp: f64,
+        kd: f64,
         torque: f64,
     ) -> Result<()> {
         let actuator_config = self.require_actuator(actuator)?;
@@ -304,13 +295,6 @@ impl RobstrideBus {
         })?;
         let calibration = self.calibration_for(actuator)?;
         let (position, velocity, torque) = calibration.apply_command(position, velocity, torque);
-        let (kp, kd) = self
-            .gains
-            .lock()
-            .expect("gains poisoned")
-            .get(actuator)
-            .copied()
-            .unwrap_or((0.0, 0.0));
 
         let position_u16 = scale_signed(position, limits.position);
         let velocity_u16 = scale_signed(velocity, limits.velocity);

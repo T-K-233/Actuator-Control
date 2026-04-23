@@ -23,9 +23,6 @@ rate = RateLimiter(frequency=control_frequency)
 bus = RobstrideBus(channel=channel, actuators=actuators, bitrate=bitrate)
 bus.connect()
 
-bus.write_mit_kp_kd("actuator_1", 0.1, 1.0)
-bus.write_mit_kp_kd("actuator_2", 0.1, 1.0)
-
 for name in actuators:
     bus.enable(name)
 
@@ -34,8 +31,22 @@ try:
     while True:
         target_position_1 = np.sin(2 * np.pi * 1 * time.time()) * 0.2
         target_position_2 = np.cos(2 * np.pi * 1 * time.time()) * 0.2
-        bus.write_mit_control(actuator="actuator_1", position=target_position_1, velocity=0, torque=0)
-        bus.write_mit_control(actuator="actuator_2", position=target_position_2, velocity=0, torque=0)
+        bus.write_mit_control(
+            actuator="actuator_1",
+            position=target_position_1,
+            velocity=0.0,
+            kp=0.1,
+            kd=1.0,
+            torque=0.0,
+        )
+        bus.write_mit_control(
+            actuator="actuator_2",
+            position=target_position_2,
+            velocity=0.0,
+            kp=0.1,
+            kd=1.0,
+            torque=0.0,
+        )
 
         state_0 = bus.get_mit_state(actuator="actuator_1")
         state_1 = bus.get_mit_state(actuator="actuator_2")

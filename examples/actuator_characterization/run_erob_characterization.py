@@ -37,9 +37,6 @@ def run_test(
     kd = hardware_config["joint_kd"]
     brake_torque = hardware_config["brake_torque"]
 
-    for name in actuators:
-        bus.write_mit_kp_kd(name, kp, kd)
-
     set_brake_torque(brake_torque)
 
     num_samples = len(signal_data)
@@ -52,7 +49,14 @@ def run_test(
     for i in tqdm.trange(num_samples):
         target_position = float(signal_data[i])
         for name in actuators:
-            bus.write_mit_control(actuator=name, position=target_position)
+            bus.write_mit_control(
+                actuator=name,
+                position=target_position,
+                velocity=0.0,
+                kp=kp,
+                kd=kd,
+                torque=0.0,
+            )
             state = bus.get_state(actuator=name)
             if state is None:
                 raise RuntimeError(f"No cached state available for actuator {name!r}")
@@ -67,7 +71,14 @@ def run_test(
 
     # return actuator to rest position
     for name in actuators:
-        bus.write_mit_control(actuator=name, position=0)
+        bus.write_mit_control(
+            actuator=name,
+            position=0.0,
+            velocity=0.0,
+            kp=kp,
+            kd=kd,
+            torque=0.0,
+        )
         state = bus.get_state(actuator=name)
         if state is None:
             raise RuntimeError(f"No cached state available for actuator {name!r}")
@@ -117,8 +128,14 @@ if __name__ == "__main__":
 
         # return actuator to rest position
         for name in actuators:
-            bus.write_mit_kp_kd(name, kp=0.0, kd=1.0)
-            bus.write_mit_control(actuator=name, position=0)
+            bus.write_mit_control(
+                actuator=name,
+                position=0.0,
+                velocity=0.0,
+                kp=0.0,
+                kd=1.0,
+                torque=0.0,
+            )
             state = bus.get_state(actuator=name)
             if state is None:
                 raise RuntimeError(f"No cached state available for actuator {name!r}")
